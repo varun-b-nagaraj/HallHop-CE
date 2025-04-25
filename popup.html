@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HallHop</title>
+  <!-- Use local Bootstrap CSS instead of CDN -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- HEADER -->
+    <div class="app-header">
+      <h2>HallHop</h2>
+      
+      <!-- STUDENT AVATAR (for dropdown trigger) -->
+      <div id="studentAvatar" class="student-avatar">
+        S
+      </div>
+    </div>
+    
+    <!-- STUDENT DROPDOWN (with default content for testing) -->
+    <div id="studentDropdown" class="student-dropdown">
+      <div class="student-option">
+        <span class="student-initial">S</span>
+        <span class="student-name">Student Name</span>
+      </div>
+      <div class="student-option logout" data-action="logout">
+        <span class="student-name">Logout</span>
+      </div>
+    </div>
+    
+    <div class="content-area">
+      <!-- LOGIN FORM -->
+      <div id="loginForm" class="container card fade-in">
+        <input type="text" id="username" placeholder="HAC Username"/>
+        <input type="password" id="password" placeholder="HAC Password"/>
+        <button id="checkBtn">Check My Class</button>
+      </div>
+
+      <!-- MAIN ACTION -->
+      <div id="mainAction" class="container">
+        <!-- STUDENT GREETING (now separate from dropdown) -->
+        <div class="student-greeting">
+          <span id="greeting">Hey, Student</span>
+        </div>
+        
+        <!-- SCHEDULE INFO -->
+        <div id="scheduleInfo" class="card"></div>
+        
+        <!-- STATUS MESSAGE -->
+        <p id="statusMessage"></p>
+        
+        <!-- ACTION BUTTONS -->
+        <button id="actionBtn">Check Out</button>
+        <button id="logoutBtn">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loading" class="loading-overlay">
+    <div class="spinner-container">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading...</p>
+    </div>
+  </div>
+
+  <!-- IMPROVED CONFIRM MODAL -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal modern-modal scale-in">
+      <div class="modal-icon">
+        <div class="modal-icon-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+      </div>
+      <h3 class="modal-title">Switch Student</h3>
+      <p id="confirmMessage" class="modal-message"></p>
+      <div class="modal-buttons">
+        <button id="confirmCancel" class="btn-cancel">Cancel</button>
+        <button id="confirmOk" class="btn-confirm">Switch</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

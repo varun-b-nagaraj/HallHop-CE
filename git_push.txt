@@ -1,0 +1,4 @@
+git add .
+git commit -m "Initial commit of HallHop Chrome Extension"
+git branch -M main
+git push -u origin main
