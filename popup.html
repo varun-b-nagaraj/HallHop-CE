@@ -4,43 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>HallHop</title>
-  <!-- Use local Bootstrap CSS instead of CDN -->
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <div class="app-container">
     <!-- HEADER -->
     <div class="app-header">
       <h2>HallHop</h2>
-      
       <!-- STUDENT AVATAR (for dropdown trigger) -->
-      <div id="studentAvatar" class="student-avatar">
-        S
-      </div>
+      <div id="studentAvatar" class="student-avatar">S</div>
     </div>
     
-    <!-- STUDENT DROPDOWN (with default content for testing) -->
+    <!-- STUDENT DROPDOWN -->
     <div id="studentDropdown" class="student-dropdown">
-      <div class="student-option">
-        <span class="student-initial">S</span>
-        <span class="student-name">Student Name</span>
-      </div>
-      <div class="student-option logout" data-action="logout">
-        <span class="student-name">Logout</span>
-      </div>
+      <div class="student-option"><span class="student-initial">S</span><span class="student-name">Student Name</span></div>
+      <div class="student-option logout" data-action="logout"><span class="student-name">Logout</span></div>
     </div>
     
     <div class="content-area">
-      <!-- LOGIN FORM -->
-      <div id="loginForm" class="container card fade-in">
-        <input type="text" id="username" placeholder="HAC Username"/>
-        <input type="password" id="password" placeholder="HAC Password"/>
-        <button id="checkBtn">Check My Class</button>
-      </div>
+      <!-- Change to form element with method and type -->
+      <form id="loginForm" class="container card fade-in" method="POST">
+        <input type="text" id="username" placeholder="HAC Username" required/>
+        <input type="password" id="password" placeholder="HAC Password" required/>
+        <button type="submit" id="checkBtn">Check My Class</button>
+      </form>
 
       <!-- MAIN ACTION -->
       <div id="mainAction" class="container">
-        <!-- STUDENT GREETING (now separate from dropdown) -->
+        <!-- STUDENT GREETING -->
         <div class="student-greeting">
           <span id="greeting">Hey, Student</span>
         </div>
@@ -66,7 +57,7 @@
     </div>
   </div>
 
-  <!-- IMPROVED CONFIRM MODAL -->
+  <!-- CONFIRM SWITCH MODAL -->
   <div id="confirmModal" class="modal-overlay">
     <div class="modal modern-modal scale-in">
       <div class="modal-icon">
@@ -87,6 +78,7 @@
     </div>
   </div>
 
-  <script type="module" src="popup.js"></script>
+  <!-- SINGLE ENTRYPOINT -->
+  <script type="module" src="js/popup/init.js"></script>
 </body>
 </html>

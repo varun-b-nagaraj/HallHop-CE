@@ -361,6 +361,165 @@ h2:hover::after {
   background-color: rgba(244, 63, 94, 0.1) !important;
 }
 
+/* Current student styling */
+.student-option.current {
+  background-color: rgba(88, 101, 242, 0.05) !important;
+}
+
+.student-option.current .student-initial {
+  background-color: var(--primary);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+}
+
+.student-option.current:hover {
+  background-color: rgba(88, 101, 242, 0.08) !important;
+}
+
+.student-option.highlighted {
+  background-color: rgba(88, 101, 242, 0.08) !important;
+  border-left: 3px solid var(--primary);
+}
+
+.student-option.highlighted .student-name {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.student-option.highlighted .student-initial {
+  transform: scale(1.1);
+  background-color: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+}
+
+/* Student dropdown */
+.student-dropdown {
+  position: fixed !important;
+  top: 70px !important;
+  right: 20px !important;
+  width: 230px !important;
+  background: white !important;
+  border-radius: 16px !important;
+  box-shadow: var(--shadow-lg) !important;
+  overflow: hidden !important;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s var(--spring-out), 
+              opacity 0.3s var(--spring-out), 
+              transform 0.3s var(--spring-out);
+  z-index: 9999 !important;
+  transform: scale(0.95);
+  pointer-events: none;
+  border: none !important;
+}
+
+/* Show dropdown with 'show' class (for JS toggling) */
+.student-dropdown.show {
+  max-height: 300px !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: auto !important;
+  display: block !important;
+}
+
+/* Show dropdown on hover as backup method */
+.student-avatar:hover + .student-dropdown, 
+.student-dropdown:hover {
+  max-height: 300px !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: auto !important;
+  display: block !important;
+}
+
+/* Student option styling - update these styles */
+.student-option {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.3s var(--spring-out);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  background-color: white;
+}
+
+.student-option.active {
+  background-color: rgba(88, 101, 242, 0.08);
+}
+
+.student-option.active .student-initial {
+  background-color: var(--primary);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+}
+
+.student-option.active .student-name {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* Remove current-indicator and highlighted classes */
+.current-indicator {
+  display: none;
+}
+
+.student-option.highlighted {
+  background-color: rgba(88, 101, 242, 0.08);
+}
+
+/* Logout option styling */
+.student-option.logout {
+  background-color: rgba(244, 63, 94, 0.05) !important;
+  margin-top: 4px;
+  font-weight: 500;
+  border-top: 1px solid rgba(244, 63, 94, 0.15);
+  padding-top: 14px;
+}
+
+.student-option.logout .student-name {
+  color: var(--danger);
+}
+
+.student-option.logout:hover {
+  background-color: rgba(244, 63, 94, 0.1) !important;
+}
+
+/* Current student styling */
+.student-option.current {
+  background-color: rgba(88, 101, 242, 0.05) !important;
+}
+
+.student-option.current .student-initial {
+  background-color: var(--primary);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+}
+
+.student-option.current:hover {
+  background-color: rgba(88, 101, 242, 0.08) !important;
+}
+
+.student-option.highlighted {
+  background-color: rgba(88, 101, 242, 0.08) !important;
+  border-left: 3px solid var(--primary);
+}
+
+.student-option.highlighted .student-name {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.student-option.highlighted .student-initial {
+  transform: scale(1.1);
+  background-color: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+}
+
 /* Student dropdown */
 .student-dropdown {
   position: fixed !important;
@@ -409,7 +568,7 @@ h2:hover::after {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  background-color: white !important;
+  background-color: white;
   opacity: 0;
   transform: translateY(10px);
   animation: fadeInUp 0.3s forwards var(--spring-out);
@@ -692,6 +851,9 @@ button.ripple::after {
   text-align: center;
   transition: transform 0.3s var(--spring-bounce);
   display: inline-block;
+  position: absolute !important;
+  top: -8px !important;
+  right: 16px;
 }
 
 .lunch-badge:hover {
@@ -731,7 +893,7 @@ button.ripple::after {
   bottom: 0;
   background-color: rgba(249, 250, 251, 0.9);
   backdrop-filter: blur(5px);
-  display: flex;
+  display: none; /* Change from flex to none */
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -744,6 +906,7 @@ button.ripple::after {
 .loading-overlay.visible {
   opacity: 1;
   pointer-events: auto;
+  display: flex; /* Show when visible class is added */
 }
 
 .spinner-container {
