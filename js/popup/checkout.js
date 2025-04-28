@@ -1,4 +1,4 @@
-import { debug } from "./utils.js";
+import { debug } from "./ui.js";
 
 export function setupCheckout(
   { startButtonId, statusMessageId },

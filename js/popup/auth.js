@@ -1,8 +1,7 @@
-import { debug, showElement, hideElement } from './utils.js';
-import { API_BASE } from './api.js';
-import { getCurrentClassInfo } from './schedule.js';
-import { renderSchedule, showGreeting } from './ui.js';
-import { populateStudentDropdown } from './dropdown.js';
+import { API_BASE } from './api.js'; // Importing the api base URL so we can append fetch calls to it
+import { getCurrentClassInfo } from './schedule.js'; // Getting the information fron schedule module
+import { renderSchedule, showGreeting, debug, showElement, hideElement } from './ui.js'; // Importing all the helpers from ui
+import { populateStudentDropdown } from './dropdown.js'; // Importing the dropdown helper
 
 // State variables at module level
 let username = "";
@@ -11,6 +10,7 @@ let studentName = "";
 let activeStudentId = null;
 
 export function setupAuth(apiModule) {
+  // Get elements from the DOM
   const loginForm = document.getElementById("loginForm");
   const passwordInput = document.getElementById("password");
 
@@ -63,7 +63,7 @@ async function handleLogin(getStudentName) {
   try {
     debug("Logging in...");
     const res = await getStudentName(username, password);
-    if (!res?.name) throw new Error("Invalid credentials");
+      if (!res?.name) throw new Error("Invalid credentials");
     studentName = res.name;
     chrome.storage.local.set({
       username,
@@ -85,16 +85,15 @@ async function handleLogin(getStudentName) {
   }
 }
 
-/**
- * Attempts to restore a session; if successful, loads data and resolves.
- * Otherwise shows the login form and waits for user to submit.
- */
+// Try to restore session from local storage
 function restoreSession(getStudentName, done) {
   chrome.storage.local.get(
     ["username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"],
     async data => {
-      const age = Date.now() - (data.loginTime || 0);
-      if (data.username && age < 30 * 60 * 1000) {
+      // Getting the time we've been logged in for
+      const timeout = Date.now() - (data.loginTime || 0);
+      // Checking if we have been logged in for less than 30 minutes
+      if (data.username && timeout < 30 * 60 * 1000) { // 30 minutes x 60 seconds x 1000 milliseconds
         debug("Restoring session for", data.studentName);
         username = data.username;
         password = data.password;
@@ -136,6 +135,7 @@ function showLoginForm() {
   showElement(document.getElementById("loginForm"), "flex");
 }
 
+// Sets the avatar element in the top left witht he first letter of the name
 function updateAvatar(name) {
   const avatarEl = document.getElementById("studentAvatar");
   if (avatarEl && name) {
@@ -155,7 +155,7 @@ async function loadUserData() {
     debug("Loading user data...");
     showElement(loadingOverlay);
 
-    // Sequential loading for reliability
+    // Looking for the current active student
     debug("1. Getting current active student");
     const curRes = await fetch(`${API_BASE}/lookup/current`, {
       method: "POST",
@@ -163,13 +163,14 @@ async function loadUserData() {
       body: JSON.stringify({
         username,
         password,
-        base_url: "https://accesscenter.roundrockisd.org"
+        base_url: "https://accesscenter.roundrockisd.org" // Optional, but good practice
       })
     });
 
     const activeData = await curRes.json();
     debug("Current student response:", activeData);
 
+    // Getting the list of all students under the account
     debug("2. Getting student list");
     const listRes = await fetch(`${API_BASE}/lookup/students`, {
       method: "POST",
@@ -190,7 +191,7 @@ async function loadUserData() {
       activeData.active = students[0];
       debug("No active student, using first student as default");
     }
-
+    // Setting the active student if selected/exists
     if (activeData.active?.id && students.length > 0) {
       const found = students.find(s => s.id === activeData.active.id);
       if (found) {
@@ -212,6 +213,7 @@ async function loadUserData() {
     }
 
     debug("3. Getting schedule");
+    // Get the schedule report for the currently logged in student.
     const classInfo = await getCurrentClassInfo(
       username,
       password,

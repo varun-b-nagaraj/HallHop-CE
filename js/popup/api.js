@@ -1,13 +1,14 @@
-export const API_BASE = "https://hacapi-hh.onrender.com";
+// All API calls will be made here
+export const API_BASE = "https://hacapi-hh.onrender.com"; // Api base URL - We append fetch calls to this
 
 function debug(...args) {
-  console.log("[HallHop API Debug]", ...args);
+  console.log("[HallHop API Debug]", ...args); // Ignore all debug messages - can view them in console
 }
 
-// Normalize "Last, First" → "First Last"
+// Turning "Last name, First name" to "First Last"
 function formatName(name) {
   if (!name || typeof name !== "string") return name;
-  const parts = name.split(",");
+  const parts = name.split(","); // Split by comma
   if (parts.length === 2) {
     return `${parts[1].trim()} ${parts[0].trim()}`;
   }
@@ -16,9 +17,7 @@ function formatName(name) {
 
 debug("API module loaded");
 
-/**
- * 1) Login: fetch student display name
- */
+// Logging in to get student name
 export async function getStudentName(username, password) {
   const url = `${API_BASE}/api/getInfo`;
   debug(`getStudentName: POST ${url} (user=${username.substring(0,2)}***)`);
@@ -38,9 +37,7 @@ export async function getStudentName(username, password) {
   }
 }
 
-/**
- * 2) Lookup all students for the dropdown
- */
+// Looking up students to populate the student switching dropdown
 export async function fetchStudentList(username, password) {
   const url = `${API_BASE}/lookup/students`;
   debug("fetchStudentList: POST", url);
@@ -58,17 +55,13 @@ export async function fetchStudentList(username, password) {
   return data.students || [];
 }
 
-/**
- * 3) Save the active student ID locally
- */
+// Saving the currently selected student ID to highlight it in the dropdown
 export function saveActiveStudent(studentId) {
   debug("saveActiveStudent:", studentId);
   return chrome.storage.local.set({ activeStudentId: studentId });
 }
 
-/**
- * 4) Log a checkout, return the record (including its ID)
- */
+// Logging a checkout and sending to backend to upload to server
 export async function logCheckout(payload) {
   const url = `${API_BASE}/logs/checkout`;
   debug("logCheckout:", payload);
@@ -82,9 +75,7 @@ export async function logCheckout(payload) {
   return record;
 }
 
-/**
- * 5) Persist checkoutId for later check‐in
- */
+// Saving checkout ID to local storage - used to make sure we close the correct checkout in the backend
 export function saveCheckoutId(id) {
   debug("saveCheckoutId:", id);
   return chrome.storage.local.set({ checkoutId: id });
@@ -96,9 +87,7 @@ export async function getSavedCheckoutId() {
   return data.checkoutId;
 }
 
-/**
- * 6) Log a check‐in
- */
+// Logging a checkin
 export async function logCheckin(payload) {
   const url = `${API_BASE}/logs/checkin`;
   debug("logCheckin:", payload);
@@ -112,9 +101,7 @@ export async function logCheckin(payload) {
   return result;
 }
 
-/**
- * Get currently active student from HAC
- */
+// Getting the currently active student from HAC
 export async function getCurrentStudent(username, password) {
   const url = `${API_BASE}/lookup/current`;
   debug("getCurrentStudent: POST", url);
@@ -137,12 +124,30 @@ export async function getCurrentStudent(username, password) {
   }
 }
 
-// ———————————————————————————————————————————————————————
-// Expose for any legacy or global usage
-// ———————————————————————————————————————————————————————
+// Getting the student schedule report
+export async function fetchScheduleReport(username, password, studentId = null) {
+  const link = "https://accesscenter.roundrockisd.org/";
+  const url = `${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(link)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`;
+  
+  debug(`fetchScheduleReport URL: ${url}`);
+  
+  try {
+    const res = await fetch(url);
+    debug(`fetchScheduleReport status: ${res.status}`);
+    const report = await res.json();
+    debug(`fetchScheduleReport payload:`, report);
+    return report;
+  } catch (err) {
+    debug(`fetchScheduleReport error:`, err.message);
+    return null;
+  }
+}
 
-window.hallhopModules = window.hallhopModules || {};
-window.hallhopModules.api = {
+// Creates a hallhopModules object to store all API functions if not already created
+window.hallhopAPI = window.hallhopAPI || {};
+
+// Creates an api object to store all API functions - grouping them all together
+window.hallhopAPI.api = {
   getStudentName,
   fetchStudentList,
   saveActiveStudent,
@@ -151,6 +156,5 @@ window.hallhopModules.api = {
   getSavedCheckoutId,
   logCheckin,
   getCurrentStudent,
+  fetchScheduleReport
 };
-
-window.hallhopAPI = { ...window.hallhopModules.api };

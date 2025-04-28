@@ -1,16 +1,10 @@
-import { debug, showElement, hideElement } from './utils.js';
 import * as api from './api.js';
 import * as timer from '../../modules/timer.js';
 import * as scheduleModule from './schedule.js';
 import { setupAuth } from './auth.js';
 import { setupDropdown, populateStudentDropdown } from './dropdown.js';
 import { setupCheckout } from './checkout.js';
-import {
-  setupUI,
-  renderSchedule,
-  showGreeting,
-  updateCheckoutButton
-} from './ui.js';
+import { setupUI, renderSchedule, showGreeting, updateCheckoutButton, debug, showElement, hideElement } from './ui.js';
 
 
 /**

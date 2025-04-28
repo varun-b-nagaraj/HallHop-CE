@@ -1,4 +1,4 @@
-import { debug, hideModal } from "./utils.js";
+import { debug, hideModal } from "./ui.js";
 
 let activeStudentId = null;
 let pendingId = null;
