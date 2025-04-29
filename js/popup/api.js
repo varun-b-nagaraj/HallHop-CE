@@ -143,6 +143,95 @@ export async function fetchScheduleReport(username, password, studentId = null) 
   }
 }
 
+export async function fetchAllUserData(username, password, studentId = null) {
+  debug("Fetching all user data in parallel");
+  
+  const baseUrl = "https://accesscenter.roundrockisd.org/";
+  const hacPayload = {
+    username,
+    password,
+    base_url: baseUrl
+  };
+
+  try {
+    const results = await Promise.all([
+      // Get student info
+      fetch(`${API_BASE}/api/getInfo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: username, pass: password })
+      }),
+      
+      // Get schedule report
+      fetch(`${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(baseUrl)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`, {
+        method: "GET"
+      }),
+      
+      // Get active student
+      fetch(`${API_BASE}/lookup/current`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hacPayload)
+      }),
+      
+      // Get student list
+      fetch(`${API_BASE}/lookup/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hacPayload)
+      })
+    ]);
+
+    const [infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all(
+      results.map(r => r.json())
+    );
+
+    return {
+      studentInfo: { name: formatName(infoResponse?.name || "") },
+      scheduleReport: reportResponse,
+      activeStudent: activeResponse.active,
+      studentList: studentsResponse.students || []
+    };
+  } catch (err) {
+    debug("Error fetching user data:", err);
+    throw new Error("Failed to fetch user data");
+  }
+}
+
+// Add a new function for switching students
+export async function switchAndFetchStudentData(username, password, newStudentId) {
+  debug("Switching and fetching new student data");
+  
+  const baseUrl = "https://accesscenter.roundrockisd.org/";
+  const hacPayload = {
+    username,
+    password,
+    base_url: baseUrl,
+    student_id: newStudentId
+  };
+
+  try {
+    // First switch the student
+    const switchRes = await fetch(`${API_BASE}/lookup/switch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(hacPayload)
+    });
+
+    const switchData = await switchRes.json();
+    if (!switchData.success) {
+      throw new Error(switchData.error || "Failed to switch student");
+    }
+
+    // Then fetch all data for new student in parallel
+    return await fetchAllUserData(username, password, newStudentId);
+
+  } catch (err) {
+    debug("Error switching student:", err);
+    throw new Error("Failed to switch student");
+  }
+}
+
 // Creates a hallhopModules object to store all API functions if not already created
 window.hallhopAPI = window.hallhopAPI || {};
 
@@ -156,5 +245,7 @@ window.hallhopAPI.api = {
   getSavedCheckoutId,
   logCheckin,
   getCurrentStudent,
-  fetchScheduleReport
+  fetchScheduleReport,
+  fetchAllUserData,
+  switchAndFetchStudentData
 };

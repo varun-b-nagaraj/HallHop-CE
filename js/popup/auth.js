@@ -1,4 +1,3 @@
-import { API_BASE } from './api.js'; // Importing the api base URL so we can append fetch calls to it
 import { getCurrentClassInfo } from './schedule.js'; // Getting the information fron schedule module
 import { renderSchedule, showGreeting, debug, showElement, hideElement } from './ui.js'; // Importing all the helpers from ui
 import { populateStudentDropdown } from './dropdown.js'; // Importing the dropdown helper
@@ -10,20 +9,42 @@ let studentName = "";
 let activeStudentId = null;
 
 export function setupAuth(apiModule) {
-  // Get elements from the DOM
   const loginForm = document.getElementById("loginForm");
   const passwordInput = document.getElementById("password");
 
   return new Promise(resolve => {
-    // Handle form submission
     loginForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
       debug("Form submitted");
-      await handleLogin(apiModule.getStudentName);
-      resolve({ username, password, studentName, activeStudentId });
+      
+      const username = document.getElementById("username")?.value?.trim() || "";
+      const password = document.getElementById("password")?.value || "";
+
+      if (!username || !password) {
+        alert("Enter credentials");
+        return;
+      }
+
+      hideElement(loginForm);
+      showElement(document.getElementById("loading"));
+
+      try {
+        // Just validate credentials
+        const student = await apiModule.getStudentName(username, password);
+        if (!student?.name) throw new Error("Invalid credentials");
+        
+        // Return basic session info - actual data fetch happens in init.js
+        resolve({ username, password });
+      } catch (err) {
+        console.error("Login error:", err);
+        alert("Login failed: " + err.message);
+        showElement(loginForm, "flex");
+      } finally {
+        hideElement(document.getElementById("loading"));
+      }
     });
 
-    // Handle Enter key in password field
+    // Handle Enter key
     passwordInput?.addEventListener("keyup", async (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -31,57 +52,93 @@ export function setupAuth(apiModule) {
       }
     });
 
-    // Try to restore existing session
-    restoreSession(apiModule.getStudentName, resolve);
+    // Try to restore session
+    restoreSession(apiModule, resolve);
   });
 }
 
-async function handleLogin(getStudentName) {
-  const loginForm = document.getElementById("loginForm");
+async function loadUserData() {
   const loadingOverlay = document.getElementById("loading");
   const mainAction = document.getElementById("mainAction");
-  
-  // Get values directly from form inputs
-  const usernameInput = document.getElementById("username");
-  const passwordInput = document.getElementById("password");
-  
-  // Set the values in this scope
-  username = usernameInput?.value?.trim() || "";
-  password = passwordInput?.value || "";
-
-  debug(`Login attempt with username: ${username.substring(0,2)}***`);
-
-  if (!username || !password) {
-    alert("Enter credentials");
-    return;
-  }
-
-  // Show loading after credentials entered
-  hideElement(loginForm);
-  showElement(loadingOverlay);
+  const scheduleInfo = document.getElementById("scheduleInfo");
 
   try {
-    debug("Logging in...");
-    const res = await getStudentName(username, password);
-      if (!res?.name) throw new Error("Invalid credentials");
-    studentName = res.name;
-    chrome.storage.local.set({
+    debug("Loading user data...");
+    showElement(loadingOverlay);
+    
+    const apiModule = await import('./api.js');
+    const userData = await apiModule.fetchAllUserData(username, password, activeStudentId);
+
+    // Process student data
+    if (userData.activeStudent?.id && userData.studentList.length > 0) {
+      const found = userData.studentList.find(s => s.id === userData.activeStudent.id);
+      if (found) {
+        debug(`Setting active student: ${found.name} (${found.id})`);
+        activeStudentId = found.id;
+        studentName = found.name;
+        
+        showGreeting(found.name);
+        updateAvatar(found.name);
+        populateStudentDropdown(userData.studentList, found.id, userData.activeStudent.id);
+        
+        await chrome.storage.local.set({
+          activeStudentId: found.id,
+          studentName: found.name
+        });
+      }
+    }
+
+    // Render schedule with pre-fetched data
+    const classInfo = await getCurrentClassInfo(
       username,
       password,
-      loginTime: Date.now(),
-      studentName
-    });
-    // update avatar
-    updateAvatar(studentName);
+      null,
+      activeStudentId,
+      userData.scheduleReport
+    );
+    renderSchedule(scheduleInfo, classInfo);
 
-    // show the main UI and load the rest
-    showElement(mainAction, "flex");
-    await loadUserData();
   } catch (err) {
-    console.error("Login error:", err);
-    alert("Login failed: " + err.message);
+    console.error("Failed to load data:", err);
+    debug("Error details:", err.message);
+    alert("Failed to load your data. Please try again.");
   } finally {
     hideElement(loadingOverlay);
+    showElement(mainAction, "flex");
+  }
+}
+
+// Replace or update any student switching logic to use switchAndFetchStudentData
+async function handleStudentSwitch(newStudentId) {
+  const apiModule = await import('./api.js');
+  const scheduleInfo = document.getElementById("scheduleInfo");
+  
+  try {
+    const userData = await apiModule.switchAndFetchStudentData(username, password, newStudentId);
+    
+    // Update UI with new data
+    showGreeting(userData.studentInfo.name);
+    updateAvatar(userData.studentInfo.name);
+    populateStudentDropdown(userData.studentList, newStudentId, userData.activeStudent.id);
+    
+    const classInfo = await getCurrentClassInfo(
+      username,
+      password,
+      null,
+      newStudentId,
+      userData.scheduleReport
+    );
+    renderSchedule(scheduleInfo, classInfo);
+    
+    // Save to storage
+    await chrome.storage.local.set({
+      activeStudentId: newStudentId,
+      studentName: userData.studentInfo.name
+    });
+
+  } catch (err) {
+    console.error("Failed to switch student:", err);
+    alert("Failed to switch student. Please try again.");
   }
 }
 
@@ -143,91 +200,5 @@ function updateAvatar(name) {
     avatarEl.innerText = initial;
     avatarEl.style.display = "flex";
     debug(`Updated avatar to: ${initial}`);
-  }
-}
-
-async function loadUserData() {
-  const loadingOverlay = document.getElementById("loading");
-  const mainAction = document.getElementById("mainAction");
-  const scheduleInfo = document.getElementById("scheduleInfo");
-
-  try {
-    debug("Loading user data...");
-    showElement(loadingOverlay);
-
-    // Looking for the current active student
-    debug("1. Getting current active student");
-    const curRes = await fetch(`${API_BASE}/lookup/current`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        password,
-        base_url: "https://accesscenter.roundrockisd.org" // Optional, but good practice
-      })
-    });
-
-    const activeData = await curRes.json();
-    debug("Current student response:", activeData);
-
-    // Getting the list of all students under the account
-    debug("2. Getting student list");
-    const listRes = await fetch(`${API_BASE}/lookup/students`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        password,
-        base_url: "https://accesscenter.roundrockisd.org"
-      })
-    });
-
-    const studentData = await listRes.json();
-    const students = studentData.students || [];
-    debug(`Found ${students.length} students`);
-
-    // Set default student if none active
-    if (!activeData.active?.id && students.length > 0) {
-      activeData.active = students[0];
-      debug("No active student, using first student as default");
-    }
-    // Setting the active student if selected/exists
-    if (activeData.active?.id && students.length > 0) {
-      const found = students.find(s => s.id === activeData.active.id);
-      if (found) {
-        debug(`Setting active student: ${found.name} (${found.id})`);
-        activeStudentId = found.id;
-        studentName = found.name;
-        
-        // Update all UI elements
-        showGreeting(found.name);
-        updateAvatar(found.name);
-        populateStudentDropdown(students, found.id, activeData.active.id);
-        
-        // Save to storage
-        await chrome.storage.local.set({
-          activeStudentId: found.id,
-          studentName: found.name
-        });
-      }
-    }
-
-    debug("3. Getting schedule");
-    // Get the schedule report for the currently logged in student.
-    const classInfo = await getCurrentClassInfo(
-      username,
-      password,
-      null,
-      activeStudentId
-    );
-    renderSchedule(scheduleInfo, classInfo);
-
-  } catch (err) {
-    console.error("Failed to load data:", err);
-    debug("Error details:", err.message);
-    alert("Failed to load your data. Please try again.");
-  } finally {
-    hideElement(loadingOverlay);
-    showElement(mainAction, "flex");
   }
 }

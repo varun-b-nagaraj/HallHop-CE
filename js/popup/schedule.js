@@ -5,12 +5,12 @@ function debug(...args) {
   console.log("[HallHop Schedule Debug]", ...args);
 }
 
-export async function getCurrentClassInfo(username, password, customNow = null, studentId = null) {
+export async function getCurrentClassInfo(username, password, customNow = null, studentId = null, prefetchedReport = null) {
   debug(`Getting class info for student ID: ${studentId || 'default student'}`);
 
   try {
-    // Fetch the raw schedule report
-    const report = await fetchScheduleReport(username, password, studentId);
+    // Use prefetched report or fetch new one
+    const report = prefetchedReport || await fetchScheduleReport(username, password, studentId);
 
     if (!report || !report.data) {
       debug("No data received from schedule API");
