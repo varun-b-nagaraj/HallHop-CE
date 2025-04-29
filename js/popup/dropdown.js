@@ -92,7 +92,11 @@ export function highlightCurrentStudent(studentId) {
     opt.classList.remove('active', 'current', 'highlighted');
     if (opt.dataset.id === studentId) {
       opt.classList.add('active', 'current', 'highlighted');
-      debug(`Highlighted student: ${opt.dataset.name}`);
+      // Update avatar when highlighting new student
+      const studentAvatar = document.getElementById("studentAvatar");
+      if (studentAvatar && opt.dataset.name) {
+        studentAvatar.innerText = opt.dataset.name.charAt(0).toUpperCase();
+      }
     }
   });
 }

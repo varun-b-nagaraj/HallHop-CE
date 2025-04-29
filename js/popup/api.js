@@ -154,7 +154,8 @@ export async function fetchAllUserData(username, password, studentId = null) {
   };
 
   try {
-    const results = await Promise.all([
+    // Make all requests in parallel
+    const [infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all([
       // Get student info
       fetch(`${API_BASE}/api/getInfo`, {
         method: "POST",
@@ -182,16 +183,21 @@ export async function fetchAllUserData(username, password, studentId = null) {
       })
     ]);
 
-    const [infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all(
-      results.map(r => r.json())
-    );
+    // Parse all responses in parallel
+    const [info, report, active, students] = await Promise.all([
+      infoResponse.json(),
+      reportResponse.json(),
+      activeResponse.json(),
+      studentsResponse.json()
+    ]);
 
     return {
-      studentInfo: { name: formatName(infoResponse?.name || "") },
-      scheduleReport: reportResponse,
-      activeStudent: activeResponse.active,
-      studentList: studentsResponse.students || []
+      studentInfo: { name: formatName(info?.name || "") },
+      scheduleReport: report,
+      activeStudent: active.active,
+      studentList: students.students || []
     };
+
   } catch (err) {
     debug("Error fetching user data:", err);
     throw new Error("Failed to fetch user data");

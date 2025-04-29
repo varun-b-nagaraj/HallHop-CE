@@ -25,30 +25,36 @@ async function init() {
   showElement(loginForm, "flex");
 
   try {
-    // 1. Wait for auth before doing anything else
+    // Get credentials from auth
     const session = await setupAuth(api);
     if (!session?.username || !session?.password) {
       throw new Error("No valid session");
     }
 
-    // 2. Show loading state
+    // Show loading state
     showElement(loadingOverlay);
     hideElement(loginForm);
 
-    // 3. Fetch all initial data in parallel
+    // Fetch all user data in parallel
     const userData = await api.fetchAllUserData(session.username, session.password);
     if (!userData) throw new Error("Failed to fetch user data");
 
-    // 4. Process student data
+    // Process student data
     const currentStudent = userData.activeStudent?.id ? 
       userData.studentList.find(s => s.id === userData.activeStudent.id) : 
       userData.studentList[0];
 
     if (!currentStudent) throw new Error("No student data available");
 
-    // 5. Set up UI and display data
+    // Set up UI and display data
     setupUI();
     showGreeting(currentStudent.name);
+    
+    // Initialize avatar with current student
+    const studentAvatar = document.getElementById("studentAvatar");
+    if (studentAvatar && currentStudent.name) {
+      studentAvatar.innerText = currentStudent.name.charAt(0).toUpperCase();
+    }
     
     // 6. Setup dropdown with all required data
     setupDropdown(
@@ -65,7 +71,11 @@ async function init() {
           );
           
           // Update UI with new data
-          showGreeting(newUserData.studentInfo.name);
+          const newStudent = newUserData.studentList.find(s => s.id === newStudentId);
+          if (newStudent) {
+            showGreeting(newStudent.name);
+            document.getElementById("studentAvatar").innerText = newStudent.name.charAt(0).toUpperCase();
+          }
           
           // Update schedule
           const classInfo = await scheduleModule.getCurrentClassInfo(
@@ -80,8 +90,20 @@ async function init() {
           // Save state
           await chrome.storage.local.set({
             activeStudentId: newStudentId,
-            studentName: newUserData.studentInfo.name
+            studentName: newStudent?.name || ''
           });
+
+          // Update dropdown UI to reflect new active student
+          const dropdown = document.getElementById("studentDropdown");
+          if (dropdown) {
+            dropdown.querySelectorAll('.student-option').forEach(opt => {
+              opt.classList.remove('active', 'current', 'highlighted');
+              if (opt.dataset.id === newStudentId) {
+                opt.classList.add('active', 'current', 'highlighted');
+              }
+            });
+          }
+
         } catch (err) {
           console.error("Switch failed:", err);
           alert("Failed to switch student. Please try again.");

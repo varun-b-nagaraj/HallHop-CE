@@ -25,22 +25,18 @@ export function setupAuth(apiModule) {
         return;
       }
 
+      const loadingOverlay = document.getElementById("loading");
       hideElement(loginForm);
-      showElement(document.getElementById("loading"));
+      showElement(loadingOverlay, "flex"); // Changed to flex display
 
       try {
-        // Just validate credentials
-        const student = await apiModule.getStudentName(username, password);
-        if (!student?.name) throw new Error("Invalid credentials");
-        
-        // Return basic session info - actual data fetch happens in init.js
+        // Just validate credentials and return them
         resolve({ username, password });
       } catch (err) {
         console.error("Login error:", err);
         alert("Login failed: " + err.message);
+        hideElement(loadingOverlay);
         showElement(loginForm, "flex");
-      } finally {
-        hideElement(document.getElementById("loading"));
       }
     });
 
@@ -142,7 +138,16 @@ async function handleStudentSwitch(newStudentId) {
   }
 }
 
-// Try to restore session from local storage
+function updateAvatar(name) {
+  const avatarEl = document.getElementById("studentAvatar");
+  if (avatarEl && name) {
+    const initial = name.charAt(0).toUpperCase();
+    avatarEl.innerText = initial;
+    avatarEl.style.display = "flex";
+    debug(`Updated avatar to: ${initial}`);
+  }
+}
+
 function restoreSession(getStudentName, done) {
   chrome.storage.local.get(
     ["username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"],
@@ -150,7 +155,7 @@ function restoreSession(getStudentName, done) {
       // Getting the time we've been logged in for
       const timeout = Date.now() - (data.loginTime || 0);
       // Checking if we have been logged in for less than 30 minutes
-      if (data.username && timeout < 30 * 60 * 1000) { // 30 minutes x 60 seconds x 1000 milliseconds
+      if (data.username && timeout < 30 * 60 * 1000) {
         debug("Restoring session for", data.studentName);
         username = data.username;
         password = data.password;
@@ -161,8 +166,8 @@ function restoreSession(getStudentName, done) {
         hideElement(document.getElementById("loginForm"));
         showElement(document.getElementById("mainAction"), "flex");
 
-        // restore avatar
-        updateAvatar(studentName);
+        // Update avatar immediately with stored name
+        updateAvatar(data.studentName);
 
         // resume timer if needed
         if (data.checkedOut && data.startTime) {
@@ -190,15 +195,4 @@ function restoreSession(getStudentName, done) {
 function showLoginForm() {
   hideElement(document.getElementById("mainAction"));
   showElement(document.getElementById("loginForm"), "flex");
-}
-
-// Sets the avatar element in the top left witht he first letter of the name
-function updateAvatar(name) {
-  const avatarEl = document.getElementById("studentAvatar");
-  if (avatarEl && name) {
-    const initial = name.charAt(0).toUpperCase();
-    avatarEl.innerText = initial;
-    avatarEl.style.display = "flex";
-    debug(`Updated avatar to: ${initial}`);
-  }
 }
