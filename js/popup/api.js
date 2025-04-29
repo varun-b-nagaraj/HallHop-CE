@@ -206,7 +206,7 @@ export async function fetchAllUserData(username, password, studentId = null) {
 
 // Add a new function for switching students
 export async function switchAndFetchStudentData(username, password, newStudentId) {
-  debug("Switching and fetching new student data");
+  debug("Switching and fetching new student data in parallel");
   
   const baseUrl = "https://accesscenter.roundrockisd.org/";
   const hacPayload = {
@@ -217,20 +217,60 @@ export async function switchAndFetchStudentData(username, password, newStudentId
   };
 
   try {
-    // First switch the student
-    const switchRes = await fetch(`${API_BASE}/lookup/switch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(hacPayload)
-    });
+    // Run all requests in parallel, including the switch request
+    const [switchData, infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all([
+      // Switch student
+      fetch(`${API_BASE}/lookup/switch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hacPayload)
+      }).then(r => r.json()),
 
-    const switchData = await switchRes.json();
+      // Get student info
+      fetch(`${API_BASE}/api/getInfo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: username, pass: password })
+      }),
+      
+      // Get schedule report
+      fetch(`${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(baseUrl)}&student_id=${encodeURIComponent(newStudentId)}`, {
+        method: "GET"
+      }),
+      
+      // Get active student
+      fetch(`${API_BASE}/lookup/current`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hacPayload)
+      }),
+      
+      // Get student list
+      fetch(`${API_BASE}/lookup/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hacPayload)
+      })
+    ]);
+
     if (!switchData.success) {
       throw new Error(switchData.error || "Failed to switch student");
     }
 
-    // Then fetch all data for new student in parallel
-    return await fetchAllUserData(username, password, newStudentId);
+    // Parse remaining responses in parallel
+    const [info, report, active, students] = await Promise.all([
+      infoResponse.json(),
+      reportResponse.json(),
+      activeResponse.json(),
+      studentsResponse.json()
+    ]);
+
+    return {
+      studentInfo: { name: formatName(info?.name || "") },
+      scheduleReport: report,
+      activeStudent: active.active,
+      studentList: students.students || []
+    };
 
   } catch (err) {
     debug("Error switching student:", err);
