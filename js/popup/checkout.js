@@ -30,6 +30,8 @@ export function setupCheckout(
     // First check if it's a weekend
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+    
+    // Check for weekend
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       debug("Attempted checkout on weekend");
       btn.innerText = "It's the weekend!";
@@ -37,6 +39,30 @@ export function setupCheckout(
       btn.style.opacity = "0.5";
       btn.style.cursor = "not-allowed";
       status.innerText = "Checkouts are not available on weekends.";
+      return;
+    }
+
+    // Check for after school hours (after 4:20 PM)
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    if (currentHour > 16 || (currentHour === 16 && currentMinute >= 20)) {
+      debug("Attempted checkout after school hours");
+      btn.innerText = "School day is over!";
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      btn.style.cursor = "not-allowed";
+      status.innerText = "School day is over - no checkouts needed.";
+      return;
+    }
+
+    // Also check for before school hours (before 8:45 AM)
+    if (currentHour < 8 || (currentHour === 8 && currentMinute < 45)) {
+      debug("Attempted checkout before school hours");
+      btn.innerText = "School hasn't started!";
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      btn.style.cursor = "not-allowed";
+      status.innerText = "School day hasn't started yet.";
       return;
     }
 
