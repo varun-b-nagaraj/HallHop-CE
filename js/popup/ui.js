@@ -1,19 +1,12 @@
 export const DEBUG = true;
 
-/**
- * Generic debug logger
- */
+// Generic debug logger
 export function debug(...args) {
   if (DEBUG) {
     console.log("[HallHop Debug]", ...args);
   }
 }
-/**
- * Wire up all purely UI-related event handlers:
- *  - header gradient follow
-   *  - card gradient follow
-   *  - ripple effect on buttons
-   */
+// UI event handlers, header gradient, as well as ripple effects
 export function setupUI() {
   debug("Setting up UI…");
 
@@ -117,16 +110,12 @@ export function showLoading(message = 'Loading...') {
   showElement(overlay);
 }
 
-/**
- * Hide loading overlay
- */
+// Hide loading overlay
 export function hideLoading() {
   hideElement(document.getElementById('loading'));
 }
 
-/**
- * Ripple effect for buttons (expects CSS variables --x and --y)
- */
+// Rupple effect for buttons
 export function createRippleEffect(e) {
   const btn = e.currentTarget;
   btn.classList.remove("ripple");
@@ -137,9 +126,7 @@ export function createRippleEffect(e) {
   btn.classList.add("ripple");
 }
 
-/**
- * Show an element, with special handling for modals/loading overlays
- */
+// Show an element, with special handling for modals/loading overlays
 export function showElement(elem, displayType = "block") {
   if (!elem) return;
   if (
@@ -154,9 +141,7 @@ export function showElement(elem, displayType = "block") {
   }
 }
 
-/**
- * Hide an element, with special handling for modals/loading overlays
- */
+// Hide an element, with special handling for modals/loading overlays
 export function hideElement(elem) {
   if (!elem) return;
   if (
@@ -172,9 +157,7 @@ export function hideElement(elem) {
   }
 }
 
-/**
- * Hide a confirmation/modal overlay by removing its 'visible' class
- */
+// Hide the modal
 export function hideModal(modalElem) {
   if (modalElem) {
     modalElem.classList.remove("visible");
@@ -182,9 +165,7 @@ export function hideModal(modalElem) {
   }
 }
 
-/**
- * Animation helper: header gradient follow
- */
+// Follow the mouse position to update the header gradient
 export function updateHeaderColor(e) {
   const header = document.querySelector(".app-header");
   if (!header) return;
@@ -202,9 +183,7 @@ export function updateHeaderColor(e) {
   }
 }
 
-/**
- * Animation helper: card gradient follow
- */
+// Cursor gradient effect on center info screen
 export function updateCardGradient(e) {
   const card = e.currentTarget;
   const rect = card.getBoundingClientRect();
@@ -214,9 +193,7 @@ export function updateCardGradient(e) {
   card.style.setProperty("--y", `${y}px`);
 }
 
-/**
- * Development helper: logs computed styles on the dropdown
- */
+// Additional debug statements for dropdown visibility
 export function checkDropdownVisibility() {
   const dropdown = document.getElementById("studentDropdown");
   if (!dropdown) {

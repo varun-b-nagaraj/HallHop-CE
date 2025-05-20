@@ -52,26 +52,3 @@ function debug(...args) {
     formatDuration
   };
   
-  // Function to ping the API
-  function pingAPI() {
-      const apiUrl = 'https://hacapi-hh.onrender.com'; // Your API endpoint
-  
-      fetch(apiUrl)
-          .then(response => {
-              if (!response.ok) {
-                  throw new Error('Network response was not ok');
-              }
-              return response.json();
-          })
-          .then(data => {
-              console.log('Ping successful:', data);
-          })
-          .catch(error => {
-              console.error('There was a problem with the fetch operation:', error);
-          });
-  }
-  
-  // Set an interval to ping the API every minute
-  setInterval(pingAPI, 60000); // 60000 milliseconds = 1 minute
-  
-  

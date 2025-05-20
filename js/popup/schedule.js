@@ -1,4 +1,4 @@
-import { fetchScheduleReport } from './api.js'; // <-- import from api.js
+import { fetchScheduleReport } from './api.js';
 
 // Debug helper
 function debug(...args) {
@@ -36,7 +36,7 @@ export async function getCurrentClassInfo(username, password, customNow = null, 
       return { message: "It's the weekend! No school today." };
     }
 
-    // Determine A/B Day based on reference
+    // Determine A/B Day based
     const referenceDate = new Date("2025-04-23");
     const referenceDayType = "A";
     function countSchoolDays(start, end) {

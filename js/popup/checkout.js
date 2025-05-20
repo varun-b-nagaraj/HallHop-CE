@@ -68,6 +68,7 @@ export function setupCheckout(
 
     if (!checkedOut) {
       // CHECK OUT
+      // onCheckout and onCheckin are defined in init.js
       if (typeof onCheckout !== "function") {
         debug("onCheckout is not a function!", onCheckout);
         return;
@@ -76,7 +77,7 @@ export function setupCheckout(
       debug("Starting checkout process");
       checkedOut = true;
 
-      // Update UI first
+      // Update UI first and logging how many seconds they have been checked out for
       btn.style.backgroundColor = "var(--danger)";
       updateCheckoutButton("Checked Out (0m 0s)");
       timerStopper = timerModule.startTimer(ms =>
@@ -91,6 +92,7 @@ export function setupCheckout(
         debug("Error during checkout:", err);
         // Reset state on error
         checkedOut = false;
+        // Stop the timer
         if (timerStopper) timerStopper();
         updateCheckoutButton("Check Out");
         btn.style.backgroundColor = "var(--success)";
@@ -98,18 +100,20 @@ export function setupCheckout(
       }
 
     } else {
-      // CHECK IN
+      // Ensuring that onCheckin is defined
       if (typeof onCheckin !== "function") {
         debug("onCheckin is not a function!", onCheckin);
         return;
       }
 
       debug("Starting checkin process");
+      // Disabling checkout and stopping the timer
       checkedOut = false;
 
       const duration = timerModule.stopTimer(timerStopper);
       updateCheckoutButton("Check Out");
       btn.style.backgroundColor = "var(--success)";
+      // Printing duration to the screen
       status.innerText = `You've been out for ${timerModule.formatDuration(duration)}.`;
 
       try {
@@ -134,6 +138,7 @@ export function setupCheckout(
         btn.innerText = "It's the weekend!";
         btn.disabled = true;
         btn.style.opacity = "0.5";
+        // Don't alllow checkin on weekends or checkout
         btn.style.cursor = "not-allowed";
         return;
       }

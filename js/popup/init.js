@@ -8,7 +8,7 @@ import { setupUI, renderSchedule, showGreeting, updateCheckoutButton, debug, sho
 
 
 /**
- * Primary entrypoint for HallHop popup.
+ * Primary entrypoint for popup.
  * Initializes authentication, UI animations, dropdowns, schedule rendering,
  * and checkout/check-in behavior in the correct order.
  */
@@ -56,7 +56,7 @@ async function init() {
       studentAvatar.innerText = currentStudent.name.charAt(0).toUpperCase();
     }
     
-    // 6. Setup dropdown with all required data
+    // Setup dropdown with all required data
     setupDropdown(
       userData.studentList,
       currentStudent.id,
@@ -113,7 +113,7 @@ async function init() {
       }
     );
 
-    // 7. Save initial state
+    // Save initial state
     await chrome.storage.local.set({
       username: session.username,
       password: session.password,
@@ -122,7 +122,7 @@ async function init() {
       loginTime: Date.now()
     });
 
-    // 8. Show initial schedule
+    // Show initial schedule
     const classInfo = await scheduleModule.getCurrentClassInfo(
       session.username,
       session.password,
@@ -132,7 +132,7 @@ async function init() {
     );
     renderSchedule(scheduleContainer, classInfo);
 
-    // 9. Setup checkout with current class info
+    // Setup checkout with current class info and send to database
     setupCheckout(
       { startButtonId: "actionBtn", statusMessageId: "statusMessage" },
       {
@@ -161,7 +161,7 @@ async function init() {
       updateCheckoutButton
     );
 
-    // 10. Setup logout handler
+    // Setup logout handler
     const logoutBtn = document.getElementById("logoutBtn");
     logoutBtn?.addEventListener("click", async () => {
       showElement(loadingOverlay);
@@ -174,7 +174,7 @@ async function init() {
       }
     });
 
-    // 11. Show main UI
+    // Show main UI
     hideElement(loadingOverlay);
     showElement(mainAction, "flex");
 

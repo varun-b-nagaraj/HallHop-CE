@@ -1,3 +1,4 @@
+// Code for the student switching dropdownå
 import { debug, hideModal } from "./ui.js";
 
 let activeStudentId = null;
@@ -6,10 +7,12 @@ let pendingName = null;
 
 /**
  * Populate the dropdown menu DOM with student options + logout.
- * @param {Array<{id:string,name:string}>} students
- * @param {string} activeId
+ * @param {Array<{id:string,name:string}>} students - List of students is expected as an array with id(no s) and name
+ * @param {string} activeId - A local ID of the active student specific to the extension
  * @param {string} currentId - Currently selected student in HAC
  */
+
+// takes the list of students, as well as the active and current IDs
 export function populateStudentDropdown(students, initialActiveId, initialCurrentId) {
   const dropdown = document.getElementById("studentDropdown");
   if (!dropdown) return;
@@ -24,14 +27,14 @@ export function populateStudentDropdown(students, initialActiveId, initialCurren
     activeId = students[0].id;
     debug(`No active student, using first student: ${students[0].name} (${students[0].id})`);
   }
-
+  // Building the list of students for the dropdown menu
   const options = students.map(student => {
     const isSelected = student.id === (currentId || activeId);
     const initial = student.name.charAt(0).toUpperCase();
-    
+
     return `
-      <div class="student-option ${isSelected ? 'active selected' : ''}" 
-           data-id="${student.id}" 
+      <div class="student-option ${isSelected ? 'active selected' : ''}"
+           data-id="${student.id}"
            data-name="${student.name}">
         <span class="student-initial">${initial}</span>
         <span class="student-name">${student.name}</span>
@@ -50,62 +53,64 @@ export function populateStudentDropdown(students, initialActiveId, initialCurren
   dropdown.querySelectorAll(".student-option").forEach(opt => {
     opt.addEventListener("click", e => {
       e.stopPropagation();
-      // Logout?
+      // When logout is clicked, clear local storeage as well as reload the page
       if (opt.dataset.action === "logout") {
         debug("Dropdown: logout clicked");
         chrome.storage.local.clear();
         window.location.reload();
         return;
       }
-      // Switch student
+      // Switch student to the selected option within the dropdown
+      // Stored name and ID as attributes on .student-option element
       const id   = opt.dataset.id;
       const name = opt.dataset.name;
+      // If user selects a different ID, showing confirmation modal to ensure they want to switch
       if (id !== activeStudentId) {
         pendingId   = id;
         pendingName = name;
         showConfirmStudentSwitch();
       } else {
+        // If selecting the same ID, just close the dropdown to save redundancy
         closeStudentDropdown();
       }
     });
   });
-
-  // Add immediate highlight check
-  requestAnimationFrame(() => {
-    const currentOption = dropdown.querySelector(`.student-option[data-id="${currentId}"]`);
-    if (currentOption) {
-      currentOption.classList.add('active', 'current', 'highlighted');
-      debug(`Highlighted current student: ${currentOption.dataset.name}`);
-    } else {
-      debug(`Failed to find student option for ID: ${currentId}`);
-    }
-  });
 }
 
-// Add this helper function
+  // Highlight the active student
 export function highlightCurrentStudent(studentId) {
   const dropdown = document.getElementById("studentDropdown");
   if (!dropdown) return;
 
   debug(`Highlighting student: ${studentId}`);
+
+  // Remove existing highlight from all options
   dropdown.querySelectorAll('.student-option').forEach(opt => {
     opt.classList.remove('active', 'current', 'highlighted');
-    if (opt.dataset.id === studentId) {
-      opt.classList.add('active', 'current', 'highlighted');
-      // Update avatar when highlighting new student
-      const studentAvatar = document.getElementById("studentAvatar");
-      if (studentAvatar && opt.dataset.name) {
-        studentAvatar.innerText = opt.dataset.name.charAt(0).toUpperCase();
-      }
-    }
   });
+
+  // Find and highlight the active student
+  const currentOption = dropdown.querySelector(`.student-option[data-id="${studentId}"]`);
+  if (currentOption) {
+    currentOption.classList.add('active', 'current', 'highlighted');
+    debug(`Highlighted current student: ${currentOption.dataset.name}`);
+
+    // Update avatar when highlighting new student
+    const studentAvatar = document.getElementById("studentAvatar");
+    if (studentAvatar && currentOption.dataset.name) {
+      studentAvatar.innerText = currentOption.dataset.name.charAt(0).toUpperCase();
+    }
+  } else {
+    debug(`Failed to find student option for ID: ${studentId}`);
+  }
 }
 
-/**
+/*
  * Wire up the avatar toggle, outside-click close, and confirm modal buttons.
  * @param {() => void} handleStudentSwitch  Called when “Switch” is confirmed.
  */
 export function setupDropdownHandlers(handleStudentSwitch) {
+  // Initializing elements
   const avatar = document.getElementById("studentAvatar");
   const dropdown = document.getElementById("studentDropdown");
   const confirmOk = document.getElementById("confirmOk");
@@ -137,36 +142,9 @@ export function setupDropdownHandlers(handleStudentSwitch) {
     closeStudentDropdown();
   });
 
-  // Prevent dropdown clicks from bubbling
+  // Prevent dropdown clicks from bubbling - moving up the DOM
   dropdown.addEventListener("click", (e) => {
     e.stopPropagation();
-  });
-
-  // Student option clicks
-  dropdown.querySelectorAll(".student-option").forEach(opt => {
-    opt.addEventListener("click", (e) => {
-      e.stopPropagation();
-      
-      // Logout handling
-      if (opt.dataset.action === "logout") {
-        debug("Logout option clicked");
-        chrome.storage.local.clear();
-        window.location.reload();
-        return;
-      }
-
-      // Switch student handling
-      const id = opt.dataset.id;
-      const name = opt.dataset.name;
-      if (id && id !== activeStudentId) {
-        debug(`Student option clicked: ${name} (${id})`);
-        pendingId = id;
-        pendingName = name;
-        showConfirmStudentSwitch();
-      } else {
-        closeStudentDropdown();
-      }
-    });
   });
 
   // Confirm switch
@@ -179,7 +157,7 @@ export function setupDropdownHandlers(handleStudentSwitch) {
 
         // Call handler with pending student info
         await handleStudentSwitch(pendingId, pendingName);
-        
+
         // Clear pending state
         pendingId = null;
         pendingName = null;
@@ -201,10 +179,11 @@ export function setupDropdownHandlers(handleStudentSwitch) {
   }
 }
 
+// Toggle the student dropdown
 export function toggleStudentDropdown() {
   const avatar = document.getElementById("studentAvatar");
   const dropdown = document.getElementById("studentDropdown");
-  
+
   if (!avatar || !dropdown) {
     debug("Missing elements for toggle");
     return;
@@ -212,20 +191,18 @@ export function toggleStudentDropdown() {
 
   const isOpen = dropdown.classList.contains("show");
   debug(`Toggling dropdown: ${isOpen ? 'closing' : 'opening'}`);
-  
+
   // Add a small delay to ensure classes are toggled properly
-  setTimeout(() => {
-    if (isOpen) {
-      closeStudentDropdown();
-    } else {
-      avatar.classList.add("active");
-      dropdown.classList.add("show");
-      debug("Dropdown opened");
-    }
-  }, 0);
+  if (isOpen) {
+    closeStudentDropdown();
+  } else {
+    avatar.classList.add("active");
+    dropdown.classList.add("show");
+    debug("Dropdown opened");
+  }
 }
 
-/** Close the student dropdown */
+// Close the student dropdown
 export function closeStudentDropdown() {
   const avatar   = document.getElementById("studentAvatar");
   const dropdown = document.getElementById("studentDropdown");
@@ -235,25 +212,7 @@ export function closeStudentDropdown() {
   }
 }
 
-// Update dropdown highlighting
-export function updateActiveStudentInDropdown(newActiveId) {
-  const dropdown = document.getElementById("studentDropdown");
-  if (!dropdown) return;
-
-  debug(`Updating active student in dropdown: ${newActiveId}`);
-  
-  dropdown.querySelectorAll('.student-option').forEach(opt => {
-    opt.classList.remove('active');
-    if (opt.dataset.id === newActiveId) {
-      opt.classList.add('active');
-      debug(`Set active class on student: ${opt.dataset.name}`);
-    }
-  });
-}
-
-// --- Internal helper ---
-
-/** Show the “Are you sure?” modal for switching students */
+// Showing the “Are you sure?” modal for switching students
 function showConfirmStudentSwitch() {
   const confirmModal   = document.getElementById("confirmModal");
   const confirmMessage = document.getElementById("confirmMessage");
@@ -266,18 +225,15 @@ function showConfirmStudentSwitch() {
   closeStudentDropdown();
 }
 
-/**
- * Convenience: populate + handlers in one call
- */
+// Populate + handlers in one call
 export function setupDropdown(students, activeId, currentId, handleStudentSwitch) {
   debug(`Setting up dropdown - Active: ${activeId}, Current: ${currentId}`);
   populateStudentDropdown(students, activeId, currentId);
   setupDropdownHandlers(handleStudentSwitch);
-  
+
   // Add final highlight check
   setTimeout(() => {
     highlightCurrentStudent(currentId || activeId);
     debug('Performed final highlight check after setup');
   }, 200);
 }
-

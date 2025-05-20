@@ -9,6 +9,7 @@ let studentName = "";
 let activeStudentId = null;
 
 export function setupAuth(apiModule) {
+  // Show the login form
   const loginForm = document.getElementById("loginForm");
   const passwordInput = document.getElementById("password");
 
@@ -16,7 +17,7 @@ export function setupAuth(apiModule) {
     loginForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
       debug("Form submitted");
-      
+      // Get username and password from UI
       const username = document.getElementById("username")?.value?.trim() || "";
       const password = document.getElementById("password")?.value || "";
 
@@ -24,10 +25,10 @@ export function setupAuth(apiModule) {
         alert("Enter credentials");
         return;
       }
-
+      // Show loading state
       const loadingOverlay = document.getElementById("loading");
       hideElement(loginForm);
-      showElement(loadingOverlay, "flex"); // Changed to flex display
+      showElement(loadingOverlay, "flex");
 
       try {
         // Just validate credentials and return them
@@ -54,6 +55,7 @@ export function setupAuth(apiModule) {
 }
 
 async function loadUserData() {
+  // Load user data from storage
   const loadingOverlay = document.getElementById("loading");
   const mainAction = document.getElementById("mainAction");
   const scheduleInfo = document.getElementById("scheduleInfo");
@@ -62,6 +64,7 @@ async function loadUserData() {
     debug("Loading user data...");
     showElement(loadingOverlay);
     
+    // Fetch all user data returns schedule report, student list, active student, etc.
     const apiModule = await import('./api.js');
     const userData = await apiModule.fetchAllUserData(username, password, activeStudentId);
 
@@ -72,11 +75,11 @@ async function loadUserData() {
         debug(`Setting active student: ${found.name} (${found.id})`);
         activeStudentId = found.id;
         studentName = found.name;
-        
+        // Change icon and show greeting
         showGreeting(found.name);
         updateAvatar(found.name);
         populateStudentDropdown(userData.studentList, found.id, userData.activeStudent.id);
-        
+        // Save to storage for easy update in the future
         await chrome.storage.local.set({
           activeStudentId: found.id,
           studentName: found.name
@@ -137,7 +140,7 @@ async function handleStudentSwitch(newStudentId) {
     alert("Failed to switch student. Please try again.");
   }
 }
-
+// Update the avatar with the first letter of the student's name
 function updateAvatar(name) {
   const avatarEl = document.getElementById("studentAvatar");
   if (avatarEl && name) {
@@ -147,14 +150,14 @@ function updateAvatar(name) {
     debug(`Updated avatar to: ${initial}`);
   }
 }
-
+// Restore session from chrome local storage
 function restoreSession(getStudentName, done) {
   chrome.storage.local.get(
     ["username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"],
     async data => {
       // Getting the time we've been logged in for
       const timeout = Date.now() - (data.loginTime || 0);
-      // Checking if we have been logged in for less than 30 minutes
+      // Checking if we have been logged in for less than 30 minutes by converting the time to milliseconds
       if (data.username && timeout < 30 * 60 * 1000) {
         debug("Restoring session for", data.studentName);
         username = data.username;
