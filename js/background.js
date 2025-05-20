@@ -24,24 +24,38 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Function to ping the API
 function pingAPI() {
-    const apiUrl = 'https://hacapi-hh.onrender.com'; // Your API endpoint
+  const apiUrl = 'https://hacapi-hh.onrender.com'; // Your API endpoint
 
-    fetch(apiUrl)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Ping successful:', data);
-        })
-        .catch(error => {
-            console.error('There was a problem with the fetch operation:', error);
-        });
+  fetch(apiUrl)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Ping successful:', data);
+    })
+    .catch(error => {
+      console.error('There was a problem with the fetch operation:', error);
+    });
 }
 
-// Set an interval to ping the API every minute
-setInterval(pingAPI, 60000); // 60000 milliseconds = 1 minute
+// Schedule a repeating alarm on install/startup
+chrome.runtime.onInstalled.addListener(() => {
+  debug('Extension installed; setting up ping alarm');
+  chrome.alarms.create('pingMonitor', {
+    delayInMinutes: 1,    // first fire 1 minute from now
+    periodInMinutes: 1    // then every minute
+  });
+});
+
+// Listen for the alarm and call pingAPI()
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'pingMonitor') {
+    debug('Ping monitor alarm fired; calling pingAPI()');
+    pingAPI();
+  }
+});
   
 debug('Background script loaded');
