@@ -394,10 +394,6 @@ export async function switchAndFetchStudentData(username, password, newStudentId
     }
     debug("Student switch successful:", switchData.message);
 
-    // After successful switch, call fetchAllUserData.
-    // fetchAllUserData will use the existing valid token.
-    // Pass username/password for consistency, though _ensureLoginAndGetToken inside
-    // fetchAllUserData will likely just return the existing token.
     debug("Proceeding to fetchAllUserData after successful switch.");
     return await fetchAllUserData(username, password, newStudentId);
 
@@ -414,7 +410,7 @@ export async function logoutUser() {
 
   if (token) {
     try {
-      await fetch("https://your-api-url.com/api/logout", {
+      await fetch(`${API_BASE}/api/logout`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -426,24 +422,27 @@ export async function logoutUser() {
     }
   }
 
-  // Save a logout flag just before clearing everything
-  await chrome.storage.local.set({ wasLoggedOut: true });
+  // Clear in-memory state
+  authToken = null;
+  loginPromise = null;
 
-  // Now clear everything else
+  // Set logout flag and clear storage
+  await chrome.storage.local.set({ wasLoggedOut: true });
+  await chrome.storage.local.remove([
+    "username", "password", "loginTime", "studentName",
+    "checkedOut", "startTime", "activeStudentId", "checkoutId"
+  ]);
   localStorage.removeItem("authToken");
   sessionStorage.clear();
-  await chrome.storage.local.remove([
-    "username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"
-  ]);
 
   showToast("Logged out!");
   disableUI();
 
-  // Reload after delay to allow Chrome storage to flush
   setTimeout(() => {
     window.location.reload();
   }, 1000);
 }
+
 
 
 export async function apiFetch(endpoint, options = {}) {
