@@ -1,81 +1,205 @@
-// All API calls will be made here
-export const API_BASE = "https://hacapi-hh.onrender.com"; // Api base URL - We append fetch calls to this
+export const API_BASE = "https://hacapi-hh.onrender.com";
+const DEFAULT_TIMEOUT = 30000; // Increased to 30 seconds
+
+let authToken = null;
+let loginPromise = null;
 
 function debug(...args) {
-  console.log("[HallHop API Debug]", ...args); // Ignore all debug messages - can view them in console
+  console.log("[HallHop API Debug]", ...args);
 }
 
-// Turning "Last name, First name" to "First Last"
 function formatName(name) {
   if (!name || typeof name !== "string") return name;
-  const parts = name.split(","); // Split by comma
+  const parts = name.split(",");
   if (parts.length === 2) {
     return `${parts[1].trim()} ${parts[0].trim()}`;
   }
   return name;
 }
 
-debug("API module loaded");
-
-// Logging in to get student name
-export async function getStudentName(username, password) {
-  const url = `${API_BASE}/api/getInfo`;
-  debug(`getStudentName: POST ${url} (user=${username.substring(0,2)}***)`);
+function isTokenValid(token) {
+  if (!token) return false;
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: username, pass: password })
-    });
-    debug("status:", res.status);
-    const data = await res.json();
-    debug("payload:", data);
+    const [, payloadBase64] = token.split('.');
+    if (!payloadBase64) return false;
+    const payload = JSON.parse(atob(payloadBase64));
+    const nowInSeconds = Date.now() / 1000;
+    return payload && payload.exp && nowInSeconds < payload.exp;
+  } catch (e) {
+    debug("Token validation error:", e);
+    return false;
+  }
+}
+
+async function fetchWithTimeout(resource, options = {}, timeout = DEFAULT_TIMEOUT) {
+  const controller = new AbortController();
+  const id = setTimeout(() => {
+    debug(`Timeout triggered for: ${resource}`);
+    controller.abort();
+  }, timeout);
+  try {
+    debug(`Fetching with timeout (${timeout/1000}s): ${resource}`);
+    const response = await fetch(resource, { ...options, signal: controller.signal });
+    debug(`Fetch completed for: ${resource}, Status: ${response.status}`);
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      debug(`Fetch aborted for: ${resource}`, error);
+    } else {
+      debug(`Fetch error for: ${resource}`, error);
+    }
+    throw error; // Re-throw the error to be caught by the caller
+  }
+  finally {
+    clearTimeout(id);
+  }
+}
+
+async function _ensureLoginAndGetToken(username, password, base_url = "https://accesscenter.roundrockisd.org/") {
+  if (authToken && isTokenValid(authToken)) {
+    return { success: true, token: authToken };
+  }
+  if (loginPromise) {
+    debug("Login already in progress, returning existing promise.");
+    return loginPromise;
+  }
+
+  const performLogin = async () => {
+    const url = `${API_BASE}/api/login`;
+    debug(`_ensureLoginAndGetToken: POST ${url} (user=${username ? username.substring(0,2) : 'N/A'}***)`);
+    try {
+      const res = await fetchWithTimeout(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, base_url })
+      });
+      
+      const data = await res.json().catch(() => {
+        throw new Error(`Login request failed with status ${res.status} and non-JSON response`);
+      });
+
+      if (!res.ok) {
+        throw new Error(data.error || `Login failed with status ${res.status}`);
+      }
+      
+      authToken = data.token;
+      debug("_ensureLoginAndGetToken success, token stored.");
+      return { success: true, token: data.token };
+    } catch (err) {
+      debug("_ensureLoginAndGetToken error:", err);
+      authToken = null; // Clear token on actual login failure, not just promise reuse
+      throw err; // Rethrow to ensure loginPromise rejects correctly
+    }
+  };
+
+  loginPromise = performLogin().finally(() => {
+    loginPromise = null;
+  });
+  return loginPromise;
+}
+
+function _getAuthHeaders() {
+  if (!authToken || !isTokenValid(authToken)) {
+    debug("Auth token is missing, invalid, or expired for _getAuthHeaders.");
+    return { "Content-Type": "application/json" };
+  }
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${authToken}`
+  };
+}
+
+async function _handleApiResponse(response, callName = "API Call") {
+  let data;
+  try {
+    // Check if response is empty before trying to parse JSON for certain status codes
+    if (response.status === 204 || response.headers.get("content-length") === "0") {
+      debug(`${callName} returned ${response.status} with no content.`);
+      data = {}; // Or null, if that's more appropriate for no content
+    } else {
+      data = await response.json();
+    }
+  } catch (e) {
+    if (!response.ok) {
+      // If response is not OK and JSON parsing failed, it's a server error with bad format
+      throw new Error(`${callName} failed with status ${response.status} and non-JSON response body`);
+    }
+    // If response was OK but body is not JSON (or empty and not 204), this might be an issue
+    debug(`${callName} returned OK status but non-JSON or unexpected empty body. Error: ${e.message}`);
+    data = {}; // Default to empty object, or handle as an error if strictness is required
+  }
+
+  if (!response.ok) {
+    // Use error from parsed data if available, otherwise a generic message
+    throw new Error(data?.error || `${callName} failed with status ${response.status}`);
+  }
+  return data;
+}
+
+
+export async function getStudentName(username, password) {
+  const loginResult = await _ensureLoginAndGetToken(username, password);
+  if (!loginResult.success) {
+    debug("getStudentName: Login failed, cannot get info.");
+    return null;
+  }
+
+  const url = `${API_BASE}/api/getInfo`;
+  debug(`getStudentName (now using /api/getInfo): GET ${url}`);
+  try {
+    const res = await fetchWithTimeout(url, { method: "GET", headers: _getAuthHeaders() });
+    const data = await _handleApiResponse(res, "getStudentName(/api/getInfo)");
     return { name: formatName(data?.name || "") };
   } catch (err) {
-    debug("getStudentName error:", err);
+    debug("getStudentName (using /api/getInfo) error:", err);
     return null;
   }
 }
 
-// Looking up students to populate the student switching dropdown
 export async function fetchStudentList(username, password) {
+  const loginResult = await _ensureLoginAndGetToken(username, password);
+  if (!loginResult.success) {
+    debug("fetchStudentList: Login failed, cannot fetch list.");
+    return [];
+  }
+
   const url = `${API_BASE}/lookup/students`;
-  debug("fetchStudentList: POST", url);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username,
-      password,
-      base_url: "https://accesscenter.roundrockisd.org"
-    })
-  });
-  const data = await res.json();
-  debug("students:", data.students);
-  return data.students || [];
+  debug(`fetchStudentList: GET ${url}`);
+  try {
+    const res = await fetchWithTimeout(url, { method: "GET", headers: _getAuthHeaders() });
+    const data = await _handleApiResponse(res, "fetchStudentList");
+    return data.students || [];
+  } catch (err) {
+    debug("fetchStudentList error:", err);
+    return [];
+  }
 }
 
-// Saving the currently selected student ID to highlight it in the dropdown
 export function saveActiveStudent(studentId) {
   debug("saveActiveStudent:", studentId);
   return chrome.storage.local.set({ activeStudentId: studentId });
 }
 
-// Logging a checkout and sending to backend to upload to server
 export async function logCheckout(payload) {
+  if (!authToken || !isTokenValid(authToken)) {
+    debug("logCheckout: No valid auth token. Please ensure login has occurred.");
+    return { error: "Not authenticated or session expired. Please login again." };
+  }
   const url = `${API_BASE}/logs/checkout`;
-  debug("logCheckout:", payload);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const record = await res.json();
-  debug("checkout record:", record);
-  return record;
+  debug("logCheckout: POST", url, "payload:", payload);
+  try {
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: _getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return await _handleApiResponse(res, "logCheckout");
+  } catch (err) {
+      debug("logCheckout fetch/parse error:", err);
+      return { error: err.message || "An unknown error occurred during checkout." };
+  }
 }
 
-// Saving checkout ID to local storage - used to make sure we close the correct checkout in the backend
 export function saveCheckoutId(id) {
   debug("saveCheckoutId:", id);
   return chrome.storage.local.set({ checkoutId: id });
@@ -87,56 +211,60 @@ export async function getSavedCheckoutId() {
   return data.checkoutId;
 }
 
-// Logging a checkin
 export async function logCheckin(payload) {
+  if (!authToken || !isTokenValid(authToken)) {
+    debug("logCheckin: No valid auth token. Please ensure login has occurred.");
+    return { error: "Not authenticated or session expired. Please login again." };
+  }
   const url = `${API_BASE}/logs/checkin`;
-  debug("logCheckin:", payload);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const result = await res.json();
-  debug("checkin result:", result);
-  return result;
+  debug("logCheckin: POST", url, "payload:", payload);
+  try {
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: _getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return await _handleApiResponse(res, "logCheckin");
+  } catch (err) {
+      debug("logCheckin fetch/parse error:", err);
+      return { error: err.message || "An unknown error occurred during checkin." };
+  }
 }
 
-// Getting the currently active student from HAC
 export async function getCurrentStudent(username, password) {
+  const loginResult = await _ensureLoginAndGetToken(username, password);
+  if (!loginResult.success) {
+    debug("getCurrentStudent: Login failed.");
+    return null;
+  }
+
   const url = `${API_BASE}/lookup/current`;
-  debug("getCurrentStudent: POST", url);
+  debug(`getCurrentStudent: GET ${url}`);
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        password,
-        base_url: "https://accesscenter.roundrockisd.org"
-      })
-    });
-    const data = await res.json();
-    debug("Current student response:", data);
-    return data.active || null;
+    const res = await fetchWithTimeout(url, { method: "GET", headers: _getAuthHeaders() });
+    const data = await _handleApiResponse(res, "getCurrentStudent");
+    return data.success ? data.active_student : null;
   } catch (err) {
     debug("getCurrentStudent error:", err);
     return null;
   }
 }
 
-// Getting the student schedule report
 export async function fetchScheduleReport(username, password, studentId = null) {
-  const link = "https://accesscenter.roundrockisd.org/";
-  const url = `${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(link)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`;
-  
-  debug(`fetchScheduleReport URL: ${url}`);
-  
+  const loginResult = await _ensureLoginAndGetToken(username, password);
+  if (!loginResult.success) {
+    debug("fetchScheduleReport: Login failed.");
+    return null;
+  }
+
+  let url = `${API_BASE}/api/getReport`;
+  if (studentId) {
+    url += `?student_id=${encodeURIComponent(studentId)}`;
+  }
+  debug(`fetchScheduleReport URL: GET ${url}`);
   try {
-    const res = await fetch(url);
-    debug(`fetchScheduleReport status: ${res.status}`);
-    const report = await res.json();
-    debug(`fetchScheduleReport payload:`, report);
-    return report;
+    const res = await fetchWithTimeout(url, { method: "GET", headers: _getAuthHeaders() });
+    return await _handleApiResponse(res, "fetchScheduleReport");
   } catch (err) {
     debug(`fetchScheduleReport error:`, err.message);
     return null;
@@ -144,144 +272,142 @@ export async function fetchScheduleReport(username, password, studentId = null) 
 }
 
 export async function fetchAllUserData(username, password, studentId = null) {
-  debug("Fetching all user data in parallel");
+  debug(`Fetching all user data in parallel for studentId: ${studentId || 'default'}`);
   
-  const baseUrl = "https://accesscenter.roundrockisd.org/";
-  const hacPayload = {
-    username,
-    password,
-    base_url: baseUrl
-  };
-
-  try {
-    // Make all requests in parallel
-    const [infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all([
-      // Get student info
-      fetch(`${API_BASE}/api/getInfo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: username, pass: password })
-      }),
-      
-      // Get schedule report
-      fetch(`${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(baseUrl)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`, {
-        method: "GET"
-      }),
-      
-      // Get active student
-      fetch(`${API_BASE}/lookup/current`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hacPayload)
-      }),
-      
-      // Get student list
-      fetch(`${API_BASE}/lookup/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hacPayload)
-      })
-    ]);
-
-    // Parse all responses in parallel
-    const [info, report, active, students] = await Promise.all([
-      infoResponse.json(),
-      reportResponse.json(),
-      activeResponse.json(),
-      studentsResponse.json()
-    ]);
-
-    return {
-      studentInfo: { name: formatName(info?.name || "") },
-      scheduleReport: report,
-      activeStudent: active.active,
-      studentList: students.students || []
-    };
-
-  } catch (err) {
-    debug("Error fetching user data:", err);
-    throw new Error("Failed to fetch user data");
+  // Ensure login and token validity before proceeding
+  // Note: _ensureLoginAndGetToken itself is now robust against race conditions
+  const loginResult = await _ensureLoginAndGetToken(username, password);
+  if (!loginResult || !loginResult.success) {
+    const errorMessage = loginResult?.error || "Login failed, cannot fetch all user data.";
+    debug(`fetchAllUserData: Login check failed. Error: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
-}
+  debug("fetchAllUserData: Login check successful, proceeding with data fetch.");
 
-// Add a new function for switching students
-export async function switchAndFetchStudentData(username, password, newStudentId) {
-  debug("Switching and fetching new student data in parallel");
-  
-  const baseUrl = "https://accesscenter.roundrockisd.org/";
-  const hacPayload = {
-    username,
-    password,
-    base_url: baseUrl,
-    student_id: newStudentId
-  };
-
-  try {
-    // Run all requests in parallel, including the switch request
-    const [switchData, infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all([
-      // Switch student
-      fetch(`${API_BASE}/lookup/switch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hacPayload)
-      }).then(r => r.json()),
-
-      // Get student info
-      fetch(`${API_BASE}/api/getInfo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: username, pass: password })
-      }),
-      
-      // Get schedule report
-      fetch(`${API_BASE}/api/getReport?user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}&link=${encodeURIComponent(baseUrl)}&student_id=${encodeURIComponent(newStudentId)}`, {
-        method: "GET"
-      }),
-      
-      // Get active student
-      fetch(`${API_BASE}/lookup/current`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hacPayload)
-      }),
-      
-      // Get student list
-      fetch(`${API_BASE}/lookup/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hacPayload)
-      })
-    ]);
-
-    if (!switchData.success) {
-      throw new Error(switchData.error || "Failed to switch student");
+  const gracefulCheckResponse = async (response, callName) => {
+    let data;
+    try {
+      // Handle no content responses
+      if (response.status === 204 || response.headers.get("content-length") === "0") {
+        debug(`${callName} returned ${response.status} with no content.`);
+        data = {}; // Or null
+      } else {
+        data = await response.json();
+      }
+    } catch (e) {
+      // If JSON parsing fails
+      if (!response.ok) {
+        // If response was not OK and parsing failed, it's a server error with bad format
+        debug(`${callName} failed with status ${response.status} and non-JSON response. Error: ${e.message}`);
+        // Construct an error object that matches what the backend might send
+        data = { error: `${callName} failed with status ${response.status} and non-JSON response body` };
+      } else {
+        // Response was OK but parsing failed (e.g., empty but not 204, or malformed JSON)
+        debug(`${callName} returned OK status but non-JSON or malformed body. Error: ${e.message}`);
+        data = { error: `Malformed JSON response for ${callName}` }; // Treat as an error
+      }
     }
+    
+    if (!response.ok) {
+      const known404Messages = [
+        "No active student found",
+        "No students found",
+        "Failed to retrieve report"
+      ];
+      // Check if the error message from data (if it exists) is one of the known 404s
+      if (response.status === 404 && data && data.error && known404Messages.includes(data.error)) {
+        debug(`fetchAllUserData: Gracefully handled 404 for ${callName}: ${data.error}`);
+        return data; // Return error object for graceful handling
+      }
+      // For other errors or unhandled 404s, throw
+      const errorMessage = data?.error || `${callName} failed with status ${response.status}`;
+      debug(`fetchAllUserData: Unhandled error for ${callName}: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+    return data;
+  };
 
-    // Parse remaining responses in parallel
-    const [info, report, active, students] = await Promise.all([
-      infoResponse.json(),
-      reportResponse.json(),
-      activeResponse.json(),
-      studentsResponse.json()
+  try {
+    let reportUrl = `${API_BASE}/api/getReport`;
+    if (studentId) {
+      reportUrl += `?student_id=${encodeURIComponent(studentId)}`;
+    }
+    debug(`fetchAllUserData: URLs configured. Report URL: ${reportUrl}`);
+
+    const fetchOptions = { method: "GET", headers: _getAuthHeaders() };
+
+    // The AbortError is likely coming from one of these fetches timing out.
+    const [infoResponse, reportResponse, activeResponse, studentsResponse] = await Promise.all([
+      fetchWithTimeout(`${API_BASE}/api/getInfo`, fetchOptions, DEFAULT_TIMEOUT),
+      fetchWithTimeout(reportUrl, fetchOptions, DEFAULT_TIMEOUT),
+      fetchWithTimeout(`${API_BASE}/lookup/current`, fetchOptions, DEFAULT_TIMEOUT),
+      fetchWithTimeout(`${API_BASE}/lookup/students`, fetchOptions, DEFAULT_TIMEOUT)
     ]);
+    debug("fetchAllUserData: All parallel fetches completed.");
+
+    const [info, reportResult, activeResult, studentsResult] = await Promise.all([
+      _handleApiResponse(infoResponse, "/api/getInfo"),
+      gracefulCheckResponse(reportResponse, reportUrl),
+      gracefulCheckResponse(activeResponse, `${API_BASE}/lookup/current`),
+      gracefulCheckResponse(studentsResponse, `${API_BASE}/lookup/students`)
+    ]);
+    debug("fetchAllUserData: All responses processed.");
 
     return {
       studentInfo: { name: formatName(info?.name || "") },
-      scheduleReport: report,
-      activeStudent: active.active,
-      studentList: students.students || []
+      scheduleReport: (reportResult && !reportResult.error) ? reportResult : null,
+      activeStudent: (activeResult && activeResult.success) ? activeResult.active_student : null,
+      studentList: (studentsResult && studentsResult.students) ? studentsResult.students : []
     };
 
   } catch (err) {
-    debug("Error switching student:", err);
-    throw new Error("Failed to switch student");
+    // This catch will now primarily handle AbortErrors from fetchWithTimeout,
+    // or errors thrown by _handleApiResponse/_gracefulCheckResponse for unrecoverable issues.
+    debug(`Error in fetchAllUserData's main try block (outer catch): ${err.name} - ${err.message}`, err);
+    throw err; // Re-throw the original error for the caller to handle
   }
 }
 
-// Creates a hallhopModules object to store all API functions if not already created
-window.hallhopAPI = window.hallhopAPI || {};
+export async function switchAndFetchStudentData(username, password, newStudentId) {
+  debug("Switching and fetching new student data for studentId:", newStudentId);
+  
+  // Ensure login. If this fails, it will throw, and the function will exit.
+  await _ensureLoginAndGetToken(username, password); 
+  debug("switchAndFetchStudentData: Login check successful.");
 
-// Creates an api object to store all API functions - grouping them all together
+  try {
+    const switchUrl = `${API_BASE}/lookup/switch`;
+    debug(`Switching student: POST ${switchUrl} with student_id: ${newStudentId}`);
+    const switchRes = await fetchWithTimeout(switchUrl, {
+      method: "POST",
+      headers: _getAuthHeaders(),
+      body: JSON.stringify({ student_id: newStudentId })
+    }, DEFAULT_TIMEOUT); // Apply timeout to switch call as well
+
+    const switchData = await _handleApiResponse(switchRes, "switchStudent");
+    if (!switchData.success) {
+      // Backend indicated switch failed
+      throw new Error(switchData.error || "Failed to switch student (backend error)");
+    }
+    debug("Student switch successful:", switchData.message);
+
+    // After successful switch, call fetchAllUserData.
+    // fetchAllUserData will use the existing valid token.
+    // Pass username/password for consistency, though _ensureLoginAndGetToken inside
+    // fetchAllUserData will likely just return the existing token.
+    debug("Proceeding to fetchAllUserData after successful switch.");
+    return await fetchAllUserData(username, password, newStudentId);
+
+  } catch (err) {
+    // Catches errors from fetchWithTimeout (like AbortError if switch call times out)
+    // or errors from _handleApiResponse, or the explicit throw for switch failure.
+    debug(`Error in switchAndFetchStudentData: ${err.name} - ${err.message}`, err);
+    // Re-throw the error to be handled by the UI or calling function
+    throw err; 
+  }
+}
+
+window.hallhopAPI = window.hallhopAPI || {};
 window.hallhopAPI.api = {
   getStudentName,
   fetchStudentList,
@@ -295,3 +421,5 @@ window.hallhopAPI.api = {
   fetchAllUserData,
   switchAndFetchStudentData
 };
+
+debug("API module loaded with increased timeout and refined error handling.");
