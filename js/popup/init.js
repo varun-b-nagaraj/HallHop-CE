@@ -6,7 +6,7 @@ import { setupCheckout } from './checkout.js';
 import { setupDropdown, populateStudentDropdown } from './dropdown.js';
 import { 
   setupUI, renderSchedule, showGreeting, updateCheckoutButton, 
-  debug, showElement, hideElement 
+  debug, showElement, hideElement, checkConsent, showConsentModal 
 } from './ui.js';
 
 /**
@@ -16,6 +16,12 @@ import {
  */
 async function init() {
   debug("HallHop initializing...");
+  const consent = await checkConsent();
+
+  if (!consent) {
+    showConsentModal();
+    return; // Stop init until consent is given
+  }
 
   const loginForm = document.getElementById("loginForm");
   const mainAction = document.getElementById("mainAction");

@@ -257,3 +257,42 @@ export function redirectToLogin(delay = 1500) {
     window.location.href = "popup.html";
   }, delay);
 }
+
+export function showConsentModal() {
+  const modal = document.getElementById("consentModal");
+  const container = document.querySelector(".app-container");
+
+  if (modal && container) {
+    modal.classList.add("visible");
+    container.classList.add("expanded"); // 🔼 Increase popup height
+  }
+
+  document.getElementById("consentAccept")?.addEventListener("click", async () => {
+    const username = document.getElementById("username")?.value;
+    const password = document.getElementById("password")?.value;
+
+    if (!username || !password) {
+      alert("Please enter your username and password before continuing.");
+      return;
+    }
+
+    await chrome.storage.local.set({
+      consentGiven: true,
+      username,
+      password,
+      loginTime: Date.now()
+    });
+
+    modal.classList.remove("visible");
+    container.classList.remove("expanded"); // 🔽 Collapse back (optional)
+    window.location.reload();
+  });
+
+  document.getElementById("consentDecline")?.addEventListener("click", () => {
+    modal.innerHTML = `
+      <div class="modal modern-modal scale-in">
+        <h3 class="modal-title">Access Denied</h3>
+        <p class="modal-message">You must consent to continue using HallHop.</p>
+      </div>`;
+  });
+}

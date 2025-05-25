@@ -77,7 +77,19 @@
       </div>
     </div>
   </div>
-
+  <!-- FERPA Consent Modal -->
+  <div id="consentModal" class="modal-overlay">
+    <div class="modal modern-modal scale-in">
+      <h3 class="modal-title">Student Privacy Notice</h3>
+      <p class="modal-message">
+        HallHop temporarily stores student names, class periods, and check-out times to improve safety and accountability. Your data is never shared and is deleted automatically. By continuing, you acknowledge and consent to this temporary data use as per FERPA guidelines.
+      </p>
+      <div class="modal-buttons">
+        <button id="consentDecline" class="btn-cancel">Decline</button>
+        <button id="consentAccept" class="btn-confirm">I Understand</button>
+      </div>
+    </div>
+  </div>
   <!-- SINGLE ENTRYPOINT -->
   <script type="module" src="js/popup/init.js"></script>
 </body>

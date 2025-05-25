@@ -1307,3 +1307,7 @@ button.ripple::after {
 .page-transition-out {
   animation: slideUpIn 0.5s var(--spring-out) forwards;
 }
+
+.app-container.expanded {
+  min-height: 640px; /* Expand height when modal is active */
+}
