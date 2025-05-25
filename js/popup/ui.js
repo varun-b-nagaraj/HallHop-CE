@@ -214,3 +214,46 @@ export function checkDropdownVisibility() {
   );
 }
 
+// Added the logout confirmation
+export function showToast(message, duration = 3000) {
+  const toast = document.createElement("div");
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 10px;
+    z-index: 1000;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => (toast.style.opacity = "1"), 10);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+export function clearSession() {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userInfo"); // optional
+}
+
+export function disableUI() {
+  document.querySelectorAll("button, input, select").forEach(el => {
+    el.disabled = true;
+  });
+}
+
+export function redirectToLogin(delay = 1500) {
+  setTimeout(() => {
+    window.location.href = "popup.html";
+  }, delay);
+}

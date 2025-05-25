@@ -1,3 +1,6 @@
+import { clearSession } from "./ui.js";
+import { showToast, disableUI, redirectToLogin } from "./ui.js";
+
 export const API_BASE = "https://hacapi-hh.onrender.com";
 const DEFAULT_TIMEOUT = 30000; // Increased to 30 seconds
 
@@ -404,6 +407,67 @@ export async function switchAndFetchStudentData(username, password, newStudentId
     debug(`Error in switchAndFetchStudentData: ${err.name} - ${err.message}`, err);
     // Re-throw the error to be handled by the UI or calling function
     throw err; 
+  }
+}
+export async function logoutUser() {
+  const token = localStorage.getItem("authToken");
+
+  if (token) {
+    try {
+      await fetch("https://your-api-url.com/api/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.warn("Logout API failed:", err);
+    }
+  }
+
+  // Save a logout flag just before clearing everything
+  await chrome.storage.local.set({ wasLoggedOut: true });
+
+  // Now clear everything else
+  localStorage.removeItem("authToken");
+  sessionStorage.clear();
+  await chrome.storage.local.remove([
+    "username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"
+  ]);
+
+  showToast("Logged out!");
+  disableUI();
+
+  // Reload after delay to allow Chrome storage to flush
+  setTimeout(() => {
+    window.location.reload();
+  }, 1000);
+}
+
+
+export async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem("authToken");
+
+  const headers = {
+    ...(options.headers || {}),
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json"
+  };
+
+  try {
+    const response = await fetch(endpoint, { ...options, headers });
+
+    if (response.status === 401) {
+      console.warn("🔒 Session expired or unauthorized. Logging out.");
+      await logoutUser();
+      return null;
+    }
+
+    return response;
+  } catch (error) {
+    console.error("API request failed:", error);
+    return null;
   }
 }
 

@@ -2,10 +2,12 @@ import * as api from './api.js';
 import * as timer from '../../modules/timer.js';
 import * as scheduleModule from './schedule.js';
 import { setupAuth } from './auth.js';
-import { setupDropdown, populateStudentDropdown } from './dropdown.js';
 import { setupCheckout } from './checkout.js';
-import { setupUI, renderSchedule, showGreeting, updateCheckoutButton, debug, showElement, hideElement } from './ui.js';
-
+import { setupDropdown, populateStudentDropdown } from './dropdown.js';
+import { 
+  setupUI, renderSchedule, showGreeting, updateCheckoutButton, 
+  debug, showElement, hideElement 
+} from './ui.js';
 
 /**
  * Primary entrypoint for popup.
@@ -25,38 +27,31 @@ async function init() {
   showElement(loginForm, "flex");
 
   try {
-    // Get credentials from auth
     const session = await setupAuth(api);
     if (!session?.username || !session?.password) {
       throw new Error("No valid session");
     }
 
-    // Show loading state
     showElement(loadingOverlay);
     hideElement(loginForm);
 
-    // Fetch all user data in parallel
     const userData = await api.fetchAllUserData(session.username, session.password);
     if (!userData) throw new Error("Failed to fetch user data");
 
-    // Process student data
-    const currentStudent = userData.activeStudent?.id ? 
-      userData.studentList.find(s => s.id === userData.activeStudent.id) : 
+    const currentStudent = userData.activeStudent?.id ?
+      userData.studentList.find(s => s.id === userData.activeStudent.id) :
       userData.studentList[0];
 
     if (!currentStudent) throw new Error("No student data available");
 
-    // Set up UI and display data
     setupUI();
     showGreeting(currentStudent.name);
-    
-    // Initialize avatar with current student
+
     const studentAvatar = document.getElementById("studentAvatar");
     if (studentAvatar && currentStudent.name) {
       studentAvatar.innerText = currentStudent.name.charAt(0).toUpperCase();
     }
-    
-    // Setup dropdown with all required data
+
     setupDropdown(
       userData.studentList,
       currentStudent.id,
@@ -65,19 +60,17 @@ async function init() {
         showElement(loadingOverlay);
         try {
           const newUserData = await api.switchAndFetchStudentData(
-            session.username, 
-            session.password, 
+            session.username,
+            session.password,
             newStudentId
           );
-          
-          // Update UI with new data
+
           const newStudent = newUserData.studentList.find(s => s.id === newStudentId);
           if (newStudent) {
             showGreeting(newStudent.name);
             document.getElementById("studentAvatar").innerText = newStudent.name.charAt(0).toUpperCase();
           }
-          
-          // Update schedule
+
           const classInfo = await scheduleModule.getCurrentClassInfo(
             session.username,
             session.password,
@@ -87,13 +80,11 @@ async function init() {
           );
           renderSchedule(scheduleContainer, classInfo);
 
-          // Save state
           await chrome.storage.local.set({
             activeStudentId: newStudentId,
             studentName: newStudent?.name || ''
           });
 
-          // Update dropdown UI to reflect new active student
           const dropdown = document.getElementById("studentDropdown");
           if (dropdown) {
             dropdown.querySelectorAll('.student-option').forEach(opt => {
@@ -103,7 +94,6 @@ async function init() {
               }
             });
           }
-
         } catch (err) {
           console.error("Switch failed:", err);
           alert("Failed to switch student. Please try again.");
@@ -113,7 +103,6 @@ async function init() {
       }
     );
 
-    // Save initial state
     await chrome.storage.local.set({
       username: session.username,
       password: session.password,
@@ -122,7 +111,6 @@ async function init() {
       loginTime: Date.now()
     });
 
-    // Show initial schedule
     const classInfo = await scheduleModule.getCurrentClassInfo(
       session.username,
       session.password,
@@ -132,7 +120,6 @@ async function init() {
     );
     renderSchedule(scheduleContainer, classInfo);
 
-    // Setup checkout with current class info and send to database
     setupCheckout(
       { startButtonId: "actionBtn", statusMessageId: "statusMessage" },
       {
@@ -161,20 +148,24 @@ async function init() {
       updateCheckoutButton
     );
 
-    // Setup logout handler
+    // Logout: Dropdown + Button trigger logoutUser() from API
     const logoutBtn = document.getElementById("logoutBtn");
-    logoutBtn?.addEventListener("click", async () => {
+    const dropdownLogout = document.querySelector('.student-option.logout');
+
+    const logoutHandler = async () => {
       showElement(loadingOverlay);
       try {
-        await chrome.storage.local.clear();
-        window.location.reload();
+        await api.logoutUser(); // Centralized logout logic
       } catch (err) {
-        hideElement(loadingOverlay);
+        console.error("Logout error:", err);
         alert("Failed to log out. Please try again.");
+        hideElement(loadingOverlay);
       }
-    });
+    };
 
-    // Show main UI
+    logoutBtn?.addEventListener("click", logoutHandler);
+    dropdownLogout?.addEventListener("click", logoutHandler);
+
     hideElement(loadingOverlay);
     showElement(mainAction, "flex");
 
@@ -188,7 +179,7 @@ async function init() {
   }
 }
 
-// Kick off once the DOM is ready
+// DOM Ready kickoff
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

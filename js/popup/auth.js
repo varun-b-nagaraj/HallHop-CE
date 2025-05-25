@@ -153,11 +153,17 @@ function updateAvatar(name) {
 // Restore session from chrome local storage
 function restoreSession(getStudentName, done) {
   chrome.storage.local.get(
-    ["username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"],
+    ["wasLoggedOut", "username", "password", "loginTime", "studentName", "checkedOut", "startTime", "activeStudentId"],
     async data => {
-      // Getting the time we've been logged in for
+      // ⛔ If logout flag was set, skip restore
+      if (data.wasLoggedOut) {
+        debug("Session restore skipped — user had explicitly logged out");
+        await chrome.storage.local.remove("wasLoggedOut");
+        showLoginForm();
+        return;
+      }
+
       const timeout = Date.now() - (data.loginTime || 0);
-      // Checking if we have been logged in for less than 30 minutes by converting the time to milliseconds
       if (data.username && timeout < 30 * 60 * 1000) {
         debug("Restoring session for", data.studentName);
         username = data.username;
@@ -165,14 +171,10 @@ function restoreSession(getStudentName, done) {
         studentName = data.studentName;
         activeStudentId = data.activeStudentId;
 
-        // show main UI first
         hideElement(document.getElementById("loginForm"));
         showElement(document.getElementById("mainAction"), "flex");
-
-        // Update avatar immediately with stored name
         updateAvatar(data.studentName);
 
-        // resume timer if needed
         if (data.checkedOut && data.startTime) {
           const actionBtn = document.getElementById("actionBtn");
           const timerModule = await import("../../modules/timer.js");
@@ -182,10 +184,7 @@ function restoreSession(getStudentName, done) {
           actionBtn.style.backgroundColor = "var(--danger)";
         }
 
-        // Only load user data once
         await loadUserData();
-        
-        // Resolve back to init
         done({ username, password, studentName, activeStudentId });
       } else {
         debug("No valid session, showing login form");
