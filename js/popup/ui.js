@@ -214,7 +214,7 @@ export function checkDropdownVisibility() {
   );
 }
 
-// Added the logout confirmation
+// Added the logout
 export function showToast(message, duration = 3000) {
   const toast = document.createElement("div");
   toast.textContent = message;
@@ -254,21 +254,37 @@ export function disableUI() {
 
 export function redirectToLogin(delay = 1500) {
   setTimeout(() => {
-    window.location.href = "popup.html";
+    window.location.href = "popout.html";
   }, delay);
+}
+
+export async function checkConsent() {
+  try {
+    const { consentGiven } = await chrome.storage.local.get("consentGiven");
+    return !!consentGiven;
+  } catch (err) {
+    console.warn("checkConsent error:", err);
+    return false;
+  }
 }
 
 export function showConsentModal() {
   const modal = document.getElementById("consentModal");
   const container = document.querySelector(".app-container");
 
-  if (modal && container) {
-    modal.classList.add("visible");
-    container.classList.add("expanded"); // 🔼 Increase popup height
+  if (!modal || !container) {
+    console.warn("Consent modal or container missing in DOM");
+    return;
   }
 
-  document.getElementById("consentAccept")?.addEventListener("click", async () => {
-    const username = document.getElementById("username")?.value;
+  modal.classList.add("visible");
+  container.classList.add("expanded");
+
+  const acceptBtn = document.getElementById("consentAccept");
+  const declineBtn = document.getElementById("consentDecline");
+
+  acceptBtn?.addEventListener("click", async () => {
+    const username = document.getElementById("username")?.value?.trim();
     const password = document.getElementById("password")?.value;
 
     if (!username || !password) {
@@ -284,11 +300,11 @@ export function showConsentModal() {
     });
 
     modal.classList.remove("visible");
-    container.classList.remove("expanded"); // 🔽 Collapse back (optional)
+    container.classList.remove("expanded");
     window.location.reload();
   });
 
-  document.getElementById("consentDecline")?.addEventListener("click", () => {
+  declineBtn?.addEventListener("click", () => {
     modal.innerHTML = `
       <div class="modal modern-modal scale-in">
         <h3 class="modal-title">Access Denied</h3>

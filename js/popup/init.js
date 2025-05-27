@@ -126,33 +126,42 @@ async function init() {
     );
     renderSchedule(scheduleContainer, classInfo);
 
-    setupCheckout(
-      { startButtonId: "actionBtn", statusMessageId: "statusMessage" },
-      {
-        onCheckout: async () => {
-          const record = await api.logCheckout({
-            studentName: currentStudent.name,
-            className: classInfo.className,
-            period: parseInt(classInfo.period, 10),
-            room: classInfo.room,
-            teacher: classInfo.teacher,
-            checkoutTime: new Date().toISOString(),
-          });
-          await api.saveCheckoutId(record.id);
-        },
-        onCheckin: async durationMs => {
-          const checkoutId = await api.getSavedCheckoutId();
-          await api.logCheckin({
-            checkoutId,
-            checkinTime: new Date().toISOString(),
-            durationSec: Math.floor(durationMs / 1000),
-          });
-        }
-      },
-      api,
-      timer,
-      updateCheckoutButton
-    );
+setupCheckout(
+  { startButtonId: "actionBtn", statusMessageId: "statusMessage" },
+  {
+    onCheckout: async () => {
+      const record = await api.logCheckout({
+        student_id: parseInt(currentStudent.id),
+        student_name: currentStudent.name,
+        class_name: classInfo.className,
+        period: parseInt(classInfo.period, 10),
+        room: classInfo.room,
+        teacher: classInfo.teacher,
+        checkout_time: new Date().toISOString()
+      });
+
+      if (record?.id) {
+        await api.saveCheckoutId(record.id);
+      } else {
+        console.warn("⚠️ Could not save checkoutId. Insert failed.");
+      }
+    },
+
+    onCheckin: async (durationMs) => {
+      const checkoutId = await api.getSavedCheckoutId();
+
+      await api.logCheckin({
+        checkout_id: checkoutId,
+        checkin_time: new Date().toISOString(),
+        duration_sec: Math.floor(durationMs / 1000)
+      });
+    }
+  },
+  api,
+  timer,
+  updateCheckoutButton
+);
+
 
     // Logout: Dropdown + Button trigger logoutUser() from API
     const logoutBtn = document.getElementById("logoutBtn");
